@@ -324,6 +324,24 @@ class App(ttkb.Window):
             command=self._on_mode_changed,
         ).pack(anchor=tk.W)
 
+        # Record animation — promoted to the top of the right pane so it's
+        # visible without scrolling. Frames are captured at preview_every,
+        # so total frame count = max_iter / preview_every.
+        record_group = ttk.LabelFrame(
+            right_inner, text="Animation output", padding=6)
+        record_group.pack(fill=tk.X, padx=6, pady=(6, 0))
+        self.record_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            record_group,
+            text="Record animation (GIF/MP4)",
+            variable=self.record_var,
+        ).pack(side=tk.LEFT)
+        ttk.Label(record_group, text="  FPS:").pack(side=tk.LEFT)
+        self.record_fps_var = tk.IntVar(value=20)
+        ttk.Spinbox(record_group, from_=1, to=60, increment=1, width=5,
+                    textvariable=self.record_fps_var).pack(
+            side=tk.LEFT, padx=(2, 0))
+
         # Input settings
         input_group = ttk.LabelFrame(right_inner, text="Input", padding=6)
         input_group.pack(fill=tk.X, padx=6, pady=(6, 0))
@@ -487,24 +505,6 @@ class App(ttkb.Window):
                     textvariable=self.seed_size_max_var).pack(side=tk.LEFT)
         ttk.Label(size_frame, text="  (mixed only)",
                   foreground="#666").pack(side=tk.LEFT, padx=(4, 0))
-
-        # Record animation: capture each preview frame so it can be saved
-        # later as a GIF or MP4. Frames are produced at `preview_every`, so
-        # total frame count = max_iter / preview_every (memory-bounded by it).
-        record_frame = ttk.Frame(sim_group)
-        record_frame.grid(row=9, column=0, columnspan=2, sticky=tk.W,
-                          pady=(2, 0))
-        self.record_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            record_frame,
-            text="Record animation (GIF/MP4)",
-            variable=self.record_var,
-        ).pack(side=tk.LEFT)
-        ttk.Label(record_frame, text="  FPS:").pack(side=tk.LEFT)
-        self.record_fps_var = tk.IntVar(value=20)
-        ttk.Spinbox(record_frame, from_=1, to=60, increment=1, width=5,
-                    textvariable=self.record_fps_var).pack(
-            side=tk.LEFT, padx=(2, 0))
 
         ttk.Label(sim_group, text="Background:").grid(
             row=4, column=0, sticky=tk.W, pady=2)
