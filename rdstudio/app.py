@@ -101,49 +101,64 @@ def _hex_color(c):
 
 
 class ColorRow:
-    """One row of the color list: checkbox, swatch, hex, pattern, thumb, density."""
+    """Per-color state (enabled / pattern / density / hex / palette index).
 
-    def __init__(self, parent, idx, hex_color, pattern_default,
-                 density_default, thumbnails):
+    Widgets are built on demand by build_popup_row() inside the Per-color
+    popup. The always-visible main window only shows a compact swatch +
+    enable checkbox driven by enabled_var — no per-row pattern UI there.
+
+    thumb_label and density_combo are set when build_popup_row runs and
+    cleared when the popup closes; the helper methods are no-ops when
+    those widgets don't exist.
+    """
+
+    def __init__(self, idx, hex_color, pattern_default, density_default,
+                 thumbnails):
         self.idx = idx
+        self.hex_color = hex_color
         self.thumbnails = thumbnails
-
-        self.frame = ttk.Frame(parent)
         self.enabled_var = tk.BooleanVar(value=True)
         self.pattern_var = tk.StringVar(value=pattern_default)
         self.density_var = tk.StringVar(value=density_default)
+        self.thumb_label = None
+        self.density_combo = None
 
-        ttk.Checkbutton(self.frame, variable=self.enabled_var).grid(
+    def build_popup_row(self, parent):
+        """Create the detailed row widget — used inside Per-color popup."""
+        frame = ttk.Frame(parent)
+        ttk.Checkbutton(frame, variable=self.enabled_var).grid(
             row=0, column=0, padx=(2, 4))
-
-        swatch = tk.Canvas(self.frame, width=SWATCH_SIZE, height=SWATCH_SIZE,
+        swatch = tk.Canvas(frame, width=SWATCH_SIZE, height=SWATCH_SIZE,
                            highlightthickness=1, highlightbackground="#777")
         swatch.create_rectangle(0, 0, SWATCH_SIZE, SWATCH_SIZE,
-                                fill=hex_color, outline="")
+                                fill=self.hex_color, outline="")
         swatch.grid(row=0, column=1, padx=2)
-
-        ttk.Label(self.frame, text=hex_color, width=9,
+        ttk.Label(frame, text=self.hex_color, width=9,
                   font=("Courier", 9)).grid(row=0, column=2, padx=2)
-
-        pattern_combo = ttk.Combobox(self.frame, values=PATTERN_NAMES,
+        pattern_combo = ttk.Combobox(frame, values=PATTERN_NAMES,
                                      textvariable=self.pattern_var,
                                      state="readonly", width=14)
         pattern_combo.grid(row=0, column=3, padx=4)
         pattern_combo.bind("<<ComboboxSelected>>",
                            lambda e: self._on_pattern_change())
-
-        self.thumb_label = ttk.Label(self.frame, width=7, anchor=tk.CENTER)
+        self.thumb_label = ttk.Label(frame, width=7, anchor=tk.CENTER)
         self.thumb_label.grid(row=0, column=4, padx=4)
-
-        self.density_combo = ttk.Combobox(self.frame, values=DENSITY_NAMES,
+        self.density_combo = ttk.Combobox(frame, values=DENSITY_NAMES,
                                           textvariable=self.density_var,
                                           state="readonly", width=7)
         self.density_combo.grid(row=0, column=5, padx=2)
-
         self._refresh_thumb()
+        return frame
+
+    def teardown_popup_widgets(self):
+        """Drop references to widgets destroyed when the popup closes."""
+        self.thumb_label = None
+        self.density_combo = None
 
     def set_density_enabled(self, enabled):
-        """Density combo is meaningless in leaky mode (saturate is the only seed)."""
+        """No-op when the popup isn't open."""
+        if self.density_combo is None:
+            return
         self.density_combo.configure(state="readonly" if enabled else "disabled")
 
     def _on_pattern_change(self):
@@ -156,6 +171,8 @@ class ColorRow:
         self._refresh_thumb()
 
     def _refresh_thumb(self):
+        if self.thumb_label is None:
+            return
         name = self.pattern_var.get()
         photo = self.thumbnails.get(name)
         if photo is not None:
@@ -403,43 +420,39 @@ class App(ttkb.Window):
         self.resolution_label.grid(row=3, column=0, columnspan=2,
                                    sticky=tk.W, pady=(4, 0))
 
-        # Color list — grows naturally; the right-pane scrollbar handles
-        # overflow when the list is long.
-        color_group = ttk.LabelFrame(
-            right_inner,
-            text="Colors  (uncheck to treat a region as background)",
-            padding=6)
+        # Colors group — by default, one Pattern picker drives every color.
+        # 'Per color...' opens a popup where the user can override per color.
+        color_group = ttk.LabelFrame(right_inner, text="Colors", padding=6)
         color_group.pack(fill=tk.X, padx=6, pady=(6, 0))
 
-        scarce_list = ", ".join(REQUIRES_SCARCE)
-        ttk.Label(color_group,
-                  text=f"Per-color: pattern and initial density. "
-                       f"{scarce_list} need 'scarce' density — "
-                       f"auto-selected when chosen.",
-                  foreground="#666", wraplength=420,
-                  justify=tk.LEFT).pack(side=tk.BOTTOM, fill=tk.X,
-                                        pady=(4, 0))
-
-        # Master "apply to all" row — set every color to the same pattern
-        # and density in one click.
-        master_frame = ttk.Frame(color_group)
-        master_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 4))
-        ttk.Label(master_frame, text="Apply to all:").pack(
+        # Pattern picker — applies to every enabled color when changed.
+        pattern_frame = ttk.Frame(color_group)
+        pattern_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 4))
+        ttk.Label(pattern_frame, text="Pattern:").pack(
             side=tk.LEFT, padx=(2, 4))
+        # PATTERN_NAMES = ["random", "coral", ...]; default to "coral".
         self.master_pattern_var = tk.StringVar(value=PATTERN_NAMES[1])
-        ttk.Combobox(master_frame, values=PATTERN_NAMES,
-                     textvariable=self.master_pattern_var,
-                     state="readonly", width=14).pack(side=tk.LEFT, padx=2)
-        self.master_density_var = tk.StringVar(value="medium")
-        ttk.Combobox(master_frame, values=DENSITY_NAMES,
-                     textvariable=self.master_density_var,
-                     state="readonly", width=7).pack(side=tk.LEFT, padx=2)
-        ttk.Button(master_frame, text="Apply",
-                   command=self._apply_master_to_all).pack(
+        self.master_pattern_combo = ttk.Combobox(
+            pattern_frame, values=PATTERN_NAMES,
+            textvariable=self.master_pattern_var,
+            state="readonly", width=16)
+        self.master_pattern_combo.pack(side=tk.LEFT, padx=2)
+        self.master_pattern_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda e: self._on_master_pattern_changed())
+        ttk.Button(pattern_frame, text="Per color...", bootstyle="primary",
+                   command=self._open_per_color_popup).pack(
             side=tk.LEFT, padx=(6, 2))
 
+        ttk.Label(color_group,
+                  text="Uncheck a color below to skip its region "
+                       "(rendered as background).",
+                  foreground="#666", wraplength=420,
+                  justify=tk.LEFT).pack(side=tk.TOP, fill=tk.X, pady=(0, 4))
+
+        # Compact swatch strip — swatch + enable checkbox per color.
         self.color_host = ttk.Frame(color_group)
-        self.color_host.pack(fill=tk.X, expand=False)
+        self.color_host.pack(fill=tk.X, expand=False, pady=(2, 0))
 
         # Simulation settings
         sim_group = ttk.LabelFrame(right_inner, text="Simulation settings",
@@ -926,32 +939,160 @@ class App(ttkb.Window):
         self.status_label.configure(text=f"Found {n} colors.")
 
     def _rebuild_color_rows(self):
-        # Preserve (enabled, pattern, density) for indices that still exist.
+        """Rebuild ColorRow state objects and the compact swatch strip.
+
+        New palette indices inherit the master Pattern (so users see
+        'Pattern: coral' applied uniformly out of the gate, not '(mixed)').
+        Existing indices keep whatever the user had — including per-color
+        overrides set via the popup.
+        """
         prev = {row.idx: (row.enabled, row.pattern, row.density)
                 for row in self.color_rows}
-        for w in self.color_host.winfo_children():
-            w.destroy()
         self.color_rows = []
         if self.palette is None:
+            self._build_compact_swatches()
             return
-        pattern_list = list(PATTERN_PRESETS.keys())
+        master_pattern = self.master_pattern_var.get()
+        if master_pattern == "(mixed)":
+            master_pattern = PATTERN_NAMES[1]  # fall back to coral
         for i, color in enumerate(self.palette):
             hex_c = _hex_color(color)
-            default_pattern = pattern_list[i % len(pattern_list)]
-            default_density = "medium"
             if i in prev:
                 default_pattern = prev[i][1]
                 default_density = prev[i][2]
+            else:
+                default_pattern = master_pattern
+                default_density = "medium"
             if (default_density not in NO_NOISE_DENSITIES
                     and default_pattern in REQUIRES_SCARCE):
                 default_density = "scarce"
-            row = ColorRow(self.color_host, i, hex_c, default_pattern,
-                           default_density, thumbnails=self.thumbnails)
+            row = ColorRow(i, hex_c, default_pattern, default_density,
+                           thumbnails=self.thumbnails)
             if i in prev:
                 row.enabled_var.set(prev[i][0])
-            row.frame.pack(fill=tk.X, pady=2, padx=2)
             self.color_rows.append(row)
+        self._build_compact_swatches()
         self._apply_mode_to_widgets()
+        self._refresh_master_pattern_display()
+
+    def _build_compact_swatches(self):
+        """Compact swatch + enable-checkbox strip in self.color_host."""
+        for w in self.color_host.winfo_children():
+            w.destroy()
+        for row in self.color_rows:
+            col = ttk.Frame(self.color_host)
+            col.pack(side=tk.LEFT, padx=3)
+            canvas = tk.Canvas(col, width=SWATCH_SIZE + 4,
+                               height=SWATCH_SIZE + 4,
+                               highlightthickness=1,
+                               highlightbackground="#777")
+            canvas.create_rectangle(0, 0, SWATCH_SIZE + 4, SWATCH_SIZE + 4,
+                                    fill=row.hex_color, outline="")
+            canvas.pack()
+            ttk.Checkbutton(col, variable=row.enabled_var).pack(pady=(2, 0))
+
+    def _refresh_master_pattern_display(self):
+        """Show '(mixed)' when per-color patterns differ; otherwise the name."""
+        if not self.color_rows:
+            return
+        patterns = {r.pattern for r in self.color_rows}
+        if len(patterns) == 1:
+            self.master_pattern_combo.set(next(iter(patterns)))
+        else:
+            # '(mixed)' is a display-only label — not in the combobox list.
+            self.master_pattern_combo.set("(mixed)")
+
+    def _on_master_pattern_changed(self):
+        """Apply the master Pattern to every color.
+
+        Warn first if per-color overrides exist so the user doesn't wipe
+        their work by accident. Auto-promote density to 'scarce' for
+        low-feed presets that need it.
+        """
+        new_pattern = self.master_pattern_var.get()
+        if new_pattern == "(mixed)" or not self.color_rows:
+            return
+        patterns = {r.pattern for r in self.color_rows}
+        if len(patterns) > 1:
+            if not messagebox.askyesno(
+                "Reset per-color patterns?",
+                f"Per-color patterns are currently mixed. "
+                f"Set every color to '{new_pattern}'?"):
+                self._refresh_master_pattern_display()
+                return
+        for row in self.color_rows:
+            row.pattern_var.set(new_pattern)
+            if (new_pattern in REQUIRES_SCARCE
+                    and row.density not in NO_NOISE_DENSITIES):
+                row.density_var.set("scarce")
+
+    def _open_per_color_popup(self):
+        """Modal Toplevel with detailed per-color rows."""
+        if not self.color_rows:
+            messagebox.showinfo("No image", "Load an image first.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title("Per-color patterns")
+        win.transient(self)
+        win.geometry("720x440")
+
+        # Quick set row — pattern dropdown + Apply-to-all button.
+        quick_frame = ttk.Frame(win, padding=(10, 8, 10, 4))
+        quick_frame.pack(fill=tk.X)
+        ttk.Label(quick_frame, text="Quick set:").pack(side=tk.LEFT)
+        current = self.master_pattern_var.get()
+        quick_var = tk.StringVar(
+            value=current if current != "(mixed)" else PATTERN_NAMES[1])
+        ttk.Combobox(quick_frame, values=PATTERN_NAMES,
+                     textvariable=quick_var, state="readonly",
+                     width=16).pack(side=tk.LEFT, padx=(4, 0))
+
+        def _apply_quick():
+            p = quick_var.get()
+            for r in self.color_rows:
+                r.pattern_var.set(p)
+                if (p in REQUIRES_SCARCE
+                        and r.density not in NO_NOISE_DENSITIES):
+                    r.density_var.set("scarce")
+                r.refresh_thumb()
+
+        ttk.Button(quick_frame, text="Apply to all", bootstyle="primary",
+                   command=_apply_quick).pack(side=tk.LEFT, padx=(6, 0))
+
+        ttk.Separator(win, orient=tk.HORIZONTAL).pack(
+            fill=tk.X, padx=10, pady=(4, 0))
+
+        # Per-color rows
+        rows_frame = ttk.Frame(win, padding=(10, 4, 10, 0))
+        rows_frame.pack(fill=tk.BOTH, expand=True)
+        for row in self.color_rows:
+            row.build_popup_row(rows_frame).pack(fill=tk.X, pady=2)
+
+        # Bottom bar — Done button
+        bottom = ttk.Frame(win, padding=(10, 6, 10, 10))
+        bottom.pack(fill=tk.X, side=tk.BOTTOM)
+        ttk.Button(bottom, text="Done", bootstyle="primary",
+                   command=lambda: self._close_per_color_popup(win)).pack(
+            side=tk.RIGHT)
+
+        # In leaky mode density combos should be disabled.
+        self._apply_mode_to_widgets()
+
+        win.protocol("WM_DELETE_WINDOW",
+                     lambda: self._close_per_color_popup(win))
+        win.grab_set()
+
+    def _close_per_color_popup(self, win):
+        """Tear down the popup, drop widget refs, refresh master display."""
+        try:
+            win.grab_release()
+        except tk.TclError:
+            pass
+        win.destroy()
+        for r in self.color_rows:
+            r.teardown_popup_widgets()
+        self._refresh_master_pattern_display()
 
     def _on_mode_changed(self):
         """Mode selector changed — enable/disable controls that don't apply."""
@@ -970,17 +1111,6 @@ class App(ttkb.Window):
             state="disabled" if is_leaky else "normal")
         for row in self.color_rows:
             row.set_density_enabled(not is_leaky)
-
-    def _apply_master_to_all(self):
-        pattern = self.master_pattern_var.get()
-        density = self.master_density_var.get()
-        if pattern in REQUIRES_SCARCE and density not in NO_NOISE_DENSITIES:
-            density = "scarce"
-            self.master_density_var.set("scarce")
-        for row in self.color_rows:
-            row.pattern_var.set(pattern)
-            row.density_var.set(density)
-            row.refresh_thumb()
 
     # ---------- Simulation ----------
 
