@@ -101,8 +101,8 @@ Two modes to try:
 </tr>
 </table>
 
-There are more presets inside the app (fingerprints, mitosis, dots,
-spirals…) plus a per-color override and a "random" option.
+There are more presets inside the app (fingerprints, mitosis, solitons,
+wavelets, zebrafish…) plus a per-color override and a "random" option.
 
 ---
 
