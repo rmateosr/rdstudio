@@ -575,9 +575,11 @@ class App(ttkb.Window):
         self._refresh_bg_swatch()
 
         # Reset button — fills the previously-vacated row 9 slot.
+        # 'secondary' (solid gray) reads as clearly clickable; outline-*
+        # styles look disabled in the flatly theme.
         ttk.Button(
             sim_group, text="Reset to defaults",
-            bootstyle="outline-secondary",
+            bootstyle="secondary",
             command=self._reset_simulation_settings,
         ).grid(row=9, column=0, columnspan=2, sticky=tk.E, pady=(8, 0))
 
