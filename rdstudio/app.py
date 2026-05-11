@@ -207,7 +207,11 @@ class App(ttkb.Window):
     def __init__(self):
         super().__init__(themename=DEFAULT_THEME)
         self.title("Reaction-Diffusion Studio")
+        # Default window size used if the platform can't maximize on its own.
+        # The geometry call below is overridden by _start_maximized on most
+        # platforms; it stays as a fallback for niche WMs.
         self.geometry("1180x840")
+        self._start_maximized()
         self._build_menu()
 
         # Image / quantization state
@@ -253,6 +257,34 @@ class App(ttkb.Window):
         self.after(200, self._refresh_preview)
 
     # ---------- UI construction ----------
+
+    def _start_maximized(self):
+        """Open the window taking up the full screen workspace.
+
+        Each platform's Tk binding spells this differently:
+          - Windows / Tk on macOS: state('zoomed') maximizes (keeps title bar
+            and taskbar visible, just expands the window to fill the screen).
+          - Linux: 'zoomed' is not a recognized state on most WMs; setting
+            the geometry to screen size is the portable fallback.
+        We try the modern call first and fall back if Tk rejects it.
+        """
+        try:
+            self.state("zoomed")
+            return
+        except tk.TclError:
+            pass
+        try:
+            self.attributes("-zoomed", True)
+            return
+        except tk.TclError:
+            pass
+        # Last resort: size to the screen.
+        try:
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            self.geometry(f"{sw}x{sh}+0+0")
+        except tk.TclError:
+            pass
 
     def _build_menu(self):
         """File / View menu bar — currently just the theme toggle."""
