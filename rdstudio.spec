@@ -36,11 +36,19 @@ else:
     icon_path = os.path.join("assets", "icon.png")
 icon_arg = icon_path if os.path.exists(icon_path) else None
 
+# Ship the runtime PNG icon alongside the bundle so iconphoto() in
+# app.py can find it. The .ico / .icns embedded via `icon=` below
+# handles the OS-level icon (taskbar / dock); this PNG is for Tk's
+# in-window icon.
+app_datas = []
+if os.path.exists(os.path.join("assets", "icon.png")):
+    app_datas.append(("assets/icon.png", "assets"))
+
 a = Analysis(
     ["rdstudio/__main__.py"],
     pathex=[],
     binaries=tb_binaries + ff_binaries,
-    datas=tb_datas + ff_datas,
+    datas=tb_datas + ff_datas + app_datas,
     hiddenimports=tb_hidden + ff_hidden + io_hidden + [
         "PIL._tkinter_finder",
     ],

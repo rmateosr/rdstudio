@@ -212,6 +212,7 @@ class App(ttkb.Window):
         # platforms; it stays as a fallback for niche WMs.
         self.geometry("1180x840")
         self._start_maximized()
+        self._set_window_icon()
         self._build_menu()
 
         # Image / quantization state
@@ -257,6 +258,29 @@ class App(ttkb.Window):
         self.after(200, self._refresh_preview)
 
     # ---------- UI construction ----------
+
+    def _set_window_icon(self):
+        """Set the in-window Tk icon.
+
+        The OS-level icon (Windows .exe resource, macOS .app dock icon) is
+        embedded by PyInstaller via rdstudio.spec. This call covers the Tk
+        window-chrome icon, which matters most for non-frozen runs
+        (`python -m rdstudio`) and for Linux window managers.
+        """
+        try:
+            if getattr(sys, "frozen", False):
+                base = sys._MEIPASS  # PyInstaller unpack dir
+            else:
+                base = os.path.join(os.path.dirname(__file__), "..")
+            path = os.path.join(base, "assets", "icon.png")
+            if not os.path.exists(path):
+                return
+            # Keep a reference on self — Tk doesn't, and the GC will eat
+            # the PhotoImage otherwise.
+            self._window_icon = ImageTk.PhotoImage(Image.open(path))
+            self.iconphoto(False, self._window_icon)
+        except Exception:
+            pass
 
     def _start_maximized(self):
         """Open the window taking up the full screen workspace.
