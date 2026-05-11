@@ -23,6 +23,8 @@ build/
 dist/
 *.egg-info/
 *.spec
+# ...but track our PyInstaller spec (it's checked-in build config, not output)
+!rdstudio.spec
 
 # Generated simulation outputs (kept out of the repo — they belong to the user)
 *_rd.png

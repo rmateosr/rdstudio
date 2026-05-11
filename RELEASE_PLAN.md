@@ -437,9 +437,13 @@ in the new sibling repo.
    Pattern picker + Per-color popup, compact swatch strip with
    theme-aware borders, master pattern thumbnail, Advanced disclosure for
    niche sim controls, Reset to defaults button. ~11 commits.
-5. ⏳ **Windows PyInstaller build** (§6) — start here next. Fastest
-   feedback loop since the dev machine is Windows. Once a `.exe` works
-   locally, the spec is right.
+5. ✅ **PyInstaller spec + Windows build script** (§6) —
+   `rdstudio.spec` (cross-platform: same file builds on Win/Mac/Linux)
+   and `scripts/build_windows.cmd` (one-step venv → install → build →
+   zip) are in. Validated end-to-end with a Linux PyInstaller dry-run:
+   bundle launches and enters the Tk mainloop. ⏳ The actual Windows
+   build still needs to be run *on Windows* (cannot be done from WSL);
+   double-click `scripts\build_windows.cmd` from cmd/PowerShell.
 6. ⏳ **GitHub Actions for Mac + Windows** (§8) — `macos-latest` runner
    builds the `.app` without needing a Mac on hand.
 7. ⏳ **README + LICENSE + first release** (§9, then `git tag v0.1.0`).
@@ -448,6 +452,20 @@ in the new sibling repo.
 8. ⏳ **Gradio demo** (§7) — optional follow-up.
 9. ⏳ **(Later)** Code signing / notarization if Gatekeeper friction
    starts hurting adoption.
+
+### State at end of step 5
+
+- `rdstudio.spec` (cross-platform) + `scripts/build_windows.cmd` checked in.
+- `.gitignore` keeps `*.spec` excluded but **whitelists `rdstudio.spec`**
+  so the build config is tracked.
+- `rdstudio/__main__.py` uses an absolute import (`from rdstudio.app
+  import main`); the relative form crashed the PyInstaller bundle at
+  launch and would silently keep happening if reverted.
+- Spec dry-run on Linux produced a working bundle (~216 MB) that
+  launches into the Tk mainloop. Windows/Mac builds are expected to
+  produce similar sizes.
+- ⏳ Run `scripts\build_windows.cmd` on the Windows side to produce the
+  first real `.exe`; that's the only remaining piece of step 5.
 
 ### State at end of step 4
 
@@ -478,17 +496,23 @@ in the new sibling repo.
 - Animation output is intentionally the **first** group in the right
   pane (above Mode) — user wanted "do I want a video?" visible
   without scrolling.
-- For PyInstaller (step 5): install the build extra
-  (`pip install -e .[build]`) then on Windows:
-  ```cmd
-  pyinstaller --windowed --name "Reaction-Diffusion Studio" ^
-              --icon assets\icon.ico ^
-              rdstudio\__main__.py
-  ```
-  Thumbnails already go to `platformdirs.user_cache_dir`, so the
-  bundled `__file__` location doesn't need to be writable. There is
-  **no icon file yet** (`assets/icon.ico` / `.icns` missing); PyInstaller
-  builds without one but the dock/taskbar icon is bland.
+- For PyInstaller (step 5): the build is driven by **`rdstudio.spec`**
+  in the repo root. Don't pass the long `--windowed --name ...` CLI;
+  just run `pyinstaller --noconfirm --clean rdstudio.spec`. On Windows
+  the easier path is `scripts\build_windows.cmd`, which creates a venv,
+  pip-installs `.[build]`, runs PyInstaller, and zips the result.
+  The spec collects `ttkbootstrap` (themes are loaded by name at
+  runtime), `imageio_ffmpeg` (bundles the ffmpeg binary so MP4 export
+  works without a system install), and `imageio.plugins`. It auto-picks
+  `.ico` on Windows, `.icns` on macOS, `.png` on Linux from `assets/`
+  — **no icon files exist yet**, and the spec falls back gracefully to
+  no icon if missing. Thumbnails already go to
+  `platformdirs.user_cache_dir`, so the bundle's read-only `__file__`
+  location doesn't bite. Verified caveat fixed in this round:
+  `rdstudio/__main__.py` now uses an **absolute** `from rdstudio.app
+  import main` because PyInstaller strips package context from the
+  entry script — a relative import there crashed the frozen bundle on
+  launch.
 - The Microsoft Store Python on Windows installs console scripts to a
   Scripts directory that isn't on PATH by default. Document
   `python -m rdstudio` as the primary launch command in the README.
