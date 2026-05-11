@@ -128,8 +128,14 @@ class ColorRow:
         frame = ttk.Frame(parent)
         ttk.Checkbutton(frame, variable=self.enabled_var).grid(
             row=0, column=0, padx=(2, 4))
+        # Theme's fg color contrasts with bg by definition — keeps a white
+        # swatch visible in light mode, etc.
+        try:
+            border = ttkb.Style().colors.fg
+        except Exception:
+            border = "#444"
         swatch = tk.Canvas(frame, width=SWATCH_SIZE, height=SWATCH_SIZE,
-                           highlightthickness=1, highlightbackground="#777")
+                           highlightthickness=2, highlightbackground=border)
         swatch.create_rectangle(0, 0, SWATCH_SIZE, SWATCH_SIZE,
                                 fill=self.hex_color, outline="")
         swatch.grid(row=0, column=1, padx=2)
@@ -239,6 +245,9 @@ class App(ttkb.Window):
         self._install_random_thumb()
         # Generate / load presets in a background thread
         threading.Thread(target=self._thumbnail_worker, daemon=True).start()
+        # Show whatever's available for the master pattern (will fill in
+        # once the worker delivers the real coral thumbnail).
+        self._refresh_master_thumb()
 
         self.after(50, self._poll_queue)
         self.after(200, self._refresh_preview)
@@ -259,11 +268,24 @@ class App(ttkb.Window):
         self.config(menu=menubar)
 
     def _set_theme(self, name):
-        """Live-swap the ttkbootstrap theme."""
+        """Live-swap the ttkbootstrap theme and refresh theme-dependent widgets."""
         try:
             ttkb.Style().theme_use(name)
         except tk.TclError:
-            pass
+            return
+        # Swatch borders use the theme's fg color so a white swatch stays
+        # visible on a white background and vice versa — rebuild on toggle.
+        if self.color_rows:
+            self._build_compact_swatches()
+        if hasattr(self, "bg_swatch"):
+            self._refresh_bg_swatch()
+
+    def _swatch_border(self):
+        """Border color that contrasts with the current theme's background."""
+        try:
+            return ttkb.Style().colors.fg
+        except Exception:
+            return "#444"
 
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=(8, 8, 8, 4))
@@ -440,6 +462,10 @@ class App(ttkb.Window):
         self.master_pattern_combo.bind(
             "<<ComboboxSelected>>",
             lambda e: self._on_master_pattern_changed())
+        # Thumbnail preview of the currently-selected pattern.
+        self.master_thumb_label = ttk.Label(
+            pattern_frame, width=7, anchor=tk.CENTER)
+        self.master_thumb_label.pack(side=tk.LEFT, padx=(6, 0))
         ttk.Button(pattern_frame, text="Per color...", bootstyle="primary",
                    command=self._open_per_color_popup).pack(
             side=tk.LEFT, padx=(6, 2))
@@ -582,7 +608,7 @@ class App(ttkb.Window):
         bg_combo.bind("<<ComboboxSelected>>", lambda e: self._on_bg_changed())
         self.bg_swatch = tk.Canvas(
             bg_frame, width=SWATCH_SIZE, height=SWATCH_SIZE,
-            highlightthickness=1, highlightbackground="#777")
+            highlightthickness=2, highlightbackground=self._swatch_border())
         self.bg_swatch.pack(side=tk.LEFT, padx=(6, 0))
         self.bg_swatch.bind("<Button-1>", lambda e: self._pick_custom_bg())
         self._refresh_bg_swatch()
@@ -741,6 +767,7 @@ class App(ttkb.Window):
         named = {"white": "#FFFFFF", "gray": "#808080", "black": "#000000"}
         name = self.bg_var.get()
         hex_c = self.bg_custom_hex if name == "custom..." else named.get(name, "#FFFFFF")
+        self.bg_swatch.configure(highlightbackground=self._swatch_border())
         self.bg_swatch.delete("all")
         self.bg_swatch.create_rectangle(
             0, 0, SWATCH_SIZE, SWATCH_SIZE, fill=hex_c, outline="")
@@ -762,6 +789,7 @@ class App(ttkb.Window):
                     self.thumbnails[name] = ImageTk.PhotoImage(pil)
                     for row in self.color_rows:
                         row.refresh_thumb()
+                    self._refresh_master_thumb()
                 elif kind == "progress":
                     _, frac, text = msg
                     self.progress["value"] = max(0.0, min(100.0, frac * 100.0))
@@ -979,14 +1007,15 @@ class App(ttkb.Window):
         """Compact swatch + enable-checkbox strip in self.color_host."""
         for w in self.color_host.winfo_children():
             w.destroy()
+        border = self._swatch_border()
+        size = SWATCH_SIZE + 8  # bigger than the popup swatch for visibility
         for row in self.color_rows:
             col = ttk.Frame(self.color_host)
             col.pack(side=tk.LEFT, padx=3)
-            canvas = tk.Canvas(col, width=SWATCH_SIZE + 4,
-                               height=SWATCH_SIZE + 4,
-                               highlightthickness=1,
-                               highlightbackground="#777")
-            canvas.create_rectangle(0, 0, SWATCH_SIZE + 4, SWATCH_SIZE + 4,
+            canvas = tk.Canvas(col, width=size, height=size,
+                               highlightthickness=2,
+                               highlightbackground=border)
+            canvas.create_rectangle(0, 0, size, size,
                                     fill=row.hex_color, outline="")
             canvas.pack()
             ttk.Checkbutton(col, variable=row.enabled_var).pack(pady=(2, 0))
@@ -994,6 +1023,7 @@ class App(ttkb.Window):
     def _refresh_master_pattern_display(self):
         """Show '(mixed)' when per-color patterns differ; otherwise the name."""
         if not self.color_rows:
+            self._refresh_master_thumb()
             return
         patterns = {r.pattern for r in self.color_rows}
         if len(patterns) == 1:
@@ -1001,6 +1031,24 @@ class App(ttkb.Window):
         else:
             # '(mixed)' is a display-only label — not in the combobox list.
             self.master_pattern_combo.set("(mixed)")
+        self._refresh_master_thumb()
+
+    def _refresh_master_thumb(self):
+        """Set the inline thumbnail next to the master Pattern combo."""
+        if not hasattr(self, "master_thumb_label"):
+            return
+        name = self.master_pattern_var.get()
+        photo = self.thumbnails.get(name)
+        if photo is not None:
+            self.master_thumb_label.configure(image=photo, text="")
+        else:
+            if name == "(mixed)":
+                label = "mixed"
+            elif name == "random":
+                label = "rand"
+            else:
+                label = "..."
+            self.master_thumb_label.configure(image="", text=label)
 
     def _on_master_pattern_changed(self):
         """Apply the master Pattern to every color.
@@ -1025,6 +1073,7 @@ class App(ttkb.Window):
             if (new_pattern in REQUIRES_SCARCE
                     and row.density not in NO_NOISE_DENSITIES):
                 row.density_var.set("scarce")
+        self._refresh_master_thumb()
 
     def _open_per_color_popup(self):
         """Modal Toplevel with detailed per-color rows."""
