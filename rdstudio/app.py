@@ -308,6 +308,25 @@ class App(ttkb.Window):
                 self._right_window, width=e.width))
         self._install_right_pane_wheel_scroll()
 
+        # Record animation — placed at the very top of the right pane so
+        # 'do I want a video?' is the first decision visible. Frames are
+        # captured at preview_every, so total frame count =
+        # max_iter / preview_every.
+        record_group = ttk.LabelFrame(
+            right_inner, text="Animation output", padding=6)
+        record_group.pack(fill=tk.X, padx=6, pady=(6, 0))
+        self.record_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            record_group,
+            text="Record animation (GIF/MP4)",
+            variable=self.record_var,
+        ).pack(side=tk.LEFT)
+        ttk.Label(record_group, text="  FPS:").pack(side=tk.LEFT)
+        self.record_fps_var = tk.IntVar(value=20)
+        ttk.Spinbox(record_group, from_=1, to=60, increment=1, width=5,
+                    textvariable=self.record_fps_var).pack(
+            side=tk.LEFT, padx=(2, 0))
+
         # Mode selector — classic (per-zone walls) vs leaky (multi-channel V).
         mode_group = ttk.LabelFrame(right_inner, text="Mode", padding=6)
         mode_group.pack(fill=tk.X, padx=6, pady=(6, 0))
@@ -323,24 +342,6 @@ class App(ttkb.Window):
             variable=self.mode_var, value="leaky",
             command=self._on_mode_changed,
         ).pack(anchor=tk.W)
-
-        # Record animation — promoted to the top of the right pane so it's
-        # visible without scrolling. Frames are captured at preview_every,
-        # so total frame count = max_iter / preview_every.
-        record_group = ttk.LabelFrame(
-            right_inner, text="Animation output", padding=6)
-        record_group.pack(fill=tk.X, padx=6, pady=(6, 0))
-        self.record_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            record_group,
-            text="Record animation (GIF/MP4)",
-            variable=self.record_var,
-        ).pack(side=tk.LEFT)
-        ttk.Label(record_group, text="  FPS:").pack(side=tk.LEFT)
-        self.record_fps_var = tk.IntVar(value=20)
-        ttk.Spinbox(record_group, from_=1, to=60, increment=1, width=5,
-                    textvariable=self.record_fps_var).pack(
-            side=tk.LEFT, padx=(2, 0))
 
         # Input settings
         input_group = ttk.LabelFrame(right_inner, text="Input", padding=6)
