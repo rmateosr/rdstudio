@@ -454,6 +454,12 @@ class App(ttkb.Window):
             side=tk.LEFT, padx=(2, 4))
         # PATTERN_NAMES = ["random", "coral", ...]; default to "coral".
         self.master_pattern_var = tk.StringVar(value=PATTERN_NAMES[1])
+        # Thumb tracks the var on any write — covers cases the
+        # <<ComboboxSelected>> binding misses (combo changed before any
+        # image is loaded, programmatic .set() from _refresh_master_pattern_display,
+        # etc.).
+        self.master_pattern_var.trace_add(
+            "write", lambda *_: self._refresh_master_thumb())
         self.master_pattern_combo = ttk.Combobox(
             pattern_frame, values=PATTERN_NAMES,
             textvariable=self.master_pattern_var,
