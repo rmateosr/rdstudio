@@ -19,31 +19,16 @@ from PIL import Image, ImageTk
 
 from . import engine_classic as rd
 from . import engine_leaky as rdl
+from .presets import (
+    DENSITY_NAMES,
+    DU_DEFAULT,
+    DV_DEFAULT,
+    NO_NOISE_DENSITIES,
+    PATTERN_PRESETS,
+    REQUIRES_SCARCE,
+)
 
-
-PATTERN_PRESETS = {
-    "coral":            (0.055, 0.062),
-    "labyrinth":        (0.062, 0.061),
-    "stripe fragments": (0.078, 0.061),   # was "worms" — off-catalog, high-f
-    "short worms":      (0.058, 0.065),   # was "moving spots" — Munafo μ
-    "maze":             (0.054, 0.063),
-    "sparse worms":     (0.067, 0.063),   # informal, no canonical ref
-    "sparse stripes":   (0.064, 0.065),   # was "spots" — π/μ border
-    "fingerprints":     (0.060, 0.063),
-    "flakes":           (0.055, 0.065),   # informal, no canonical ref
-    "mitosis":          (0.028, 0.062),   # Pearson λ — needs scarce start
-    "zebrafish":        (0.035, 0.060),   # Rougier
-    "solitons":         (0.024, 0.060),   # Pearson ζ — needs scarce start
-    "wavelets":         (0.018, 0.050),   # Pearson α/β — needs scarce start
-}
-# Presets that require start_density="scarce" — their reaction cannot
-# nucleate from uniform-noise init and will collapse to V=0. Mitosis /
-# solitons / wavelets fail because f is too low to sustain nucleation;
-# zebrafish fails because single-pixel noise can't seed a stable stripe
-# (stripes need a patch-sized seed, which scarce provides).
-REQUIRES_SCARCE = ("zebrafish", "mitosis", "solitons", "wavelets")
 PATTERN_NAMES = ["random"] + list(PATTERN_PRESETS.keys())
-DU_DEFAULT, DV_DEFAULT = 0.16, 0.08
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 THUMB_DIR = os.path.join(HERE, "pattern_thumbnails")
@@ -104,11 +89,6 @@ def _make_thumbnail_pil(f, k, size=THUMB_SIM_SIZE, iters=THUMB_ITERS):
 def _hex_color(c):
     r, g, b = int(round(c[0])), int(round(c[1])), int(round(c[2]))
     return f"#{r:02X}{g:02X}{b:02X}"
-
-
-DENSITY_NAMES = ["minimal", "scarce", "medium", "high"]
-# Densities with no noise floor — both satisfy the REQUIRES_SCARCE patterns.
-NO_NOISE_DENSITIES = ("minimal", "scarce")
 
 
 class ColorRow:

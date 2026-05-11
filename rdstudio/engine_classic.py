@@ -45,59 +45,13 @@ from PIL import Image
 from scipy.ndimage import gaussian_filter, label as cc_label
 from sklearn.cluster import KMeans, MiniBatchKMeans
 
+# Re-exported so callers using `rd.parse_bg(...)` or `rd.DEFAULT_PARAM_SETS`
+# keep working without changing import lines elsewhere.
+from .bg import NAMED_BG_COLORS, parse_bg
+from .presets import DEFAULT_PARAM_SETS
+
 # 4 cardinal directions for Laplacian: (dy, dx)
 SHIFTS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-
-NAMED_BG_COLORS = {
-    "white": (255.0, 255.0, 255.0),
-    "gray":  (128.0, 128.0, 128.0),
-    "black": (0.0, 0.0, 0.0),
-}
-
-
-def parse_bg(bg):
-    """Return an RGB (3,) float array for a background specifier.
-
-    Accepts a named color ("white"/"gray"/"black"), an "#RRGGBB" hex string,
-    or an already-resolved (r, g, b) tuple/array. Values are in [0, 255].
-    """
-    if isinstance(bg, (tuple, list, np.ndarray)):
-        arr = np.asarray(bg, dtype=np.float64)
-        if arr.shape != (3,):
-            raise ValueError(f"bg tuple must have 3 components, got {arr.shape}")
-        return arr
-    if not isinstance(bg, str):
-        raise TypeError(f"bg must be a str or 3-tuple, got {type(bg).__name__}")
-    s = bg.strip()
-    if s in NAMED_BG_COLORS:
-        return np.asarray(NAMED_BG_COLORS[s], dtype=np.float64)
-    if s.startswith("#") and len(s) == 7:
-        try:
-            r = int(s[1:3], 16)
-            g = int(s[3:5], 16)
-            b = int(s[5:7], 16)
-            return np.asarray((r, g, b), dtype=np.float64)
-        except ValueError:
-            pass
-    raise ValueError(f"Invalid bg: {bg!r} (use white/gray/black or #RRGGBB)")
-
-# Curated (f, k) pairs — all with high enough feed rate to sustain patterns
-# under Dirichlet BC (where substrate drains at zone boundaries).
-DEFAULT_PARAM_SETS = [
-    (0.055, 0.062),  # coral                (Karl Sims / Munafo θ-κ border)
-    (0.062, 0.061),  # labyrinth            (Munafo π; same regime as fingerprints)
-    (0.078, 0.061),  # stripe fragments     (off-catalog high-f; was mislabeled "worms")
-    (0.058, 0.065),  # short worms          (Munafo μ; was mislabeled "moving spots")
-    (0.054, 0.063),  # maze                 (Munafo κ — dense coral/labyrinth hybrid)
-    (0.067, 0.063),  # sparse worms         (informal; no canonical reference)
-    (0.064, 0.065),  # sparse stripes       (π/μ border; was mislabeled "spots")
-    (0.060, 0.063),  # fingerprints         (Munafo π; same regime as labyrinth)
-    (0.055, 0.065),  # flakes               (informal; no canonical reference)
-    (0.028, 0.062),  # mitosis              (Pearson λ — needs start_density=scarce)
-    (0.035, 0.060),  # zebrafish            (Rougier)
-    (0.024, 0.060),  # solitons             (Pearson ζ — needs start_density=scarce)
-    (0.018, 0.050),  # wavelets             (Pearson α/β — needs start_density=scarce)
-]
 
 MIN_SIM_SIDE = 1024  # minimum dimension for patterns to develop
 
