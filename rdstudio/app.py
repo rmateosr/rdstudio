@@ -459,7 +459,11 @@ class App(ttkb.Window):
 
         def add_slider(r, label, var, frm, to, fmt="%.2f"):
             """Slider + live value label — used for creative knobs that
-            communicate 'drag me' better than a numeric spinbox."""
+            communicate 'drag me' better than a numeric spinbox.
+
+            The label tracks the var via trace_add, so programmatic
+            updates (e.g. Reset to defaults) refresh it too.
+            """
             ttk.Label(sim_group, text=label).grid(
                 row=r, column=0, sticky=tk.W, pady=2)
             row_frame = ttk.Frame(sim_group)
@@ -469,11 +473,15 @@ class App(ttkb.Window):
                                   width=6, anchor=tk.E,
                                   font=("Courier", 9))
             value_lbl.grid(row=0, column=1, sticky=tk.E, padx=(6, 0))
-            scale = ttk.Scale(
-                row_frame, from_=frm, to=to, variable=var,
-                orient=tk.HORIZONTAL,
-                command=lambda v: value_lbl.configure(text=fmt % float(v)))
-            scale.grid(row=0, column=0, sticky=tk.EW)
+            def _refresh(*_):
+                try:
+                    value_lbl.configure(text=fmt % float(var.get()))
+                except (tk.TclError, ValueError):
+                    pass
+            var.trace_add("write", _refresh)
+            ttk.Scale(row_frame, from_=frm, to=to, variable=var,
+                      orient=tk.HORIZONTAL).grid(
+                row=0, column=0, sticky=tk.EW)
 
         self.max_iter_var = tk.IntVar(value=10000)
         add_spin(0, "Simulation length (iterations):", self.max_iter_var,
@@ -565,6 +573,35 @@ class App(ttkb.Window):
         self.bg_swatch.pack(side=tk.LEFT, padx=(6, 0))
         self.bg_swatch.bind("<Button-1>", lambda e: self._pick_custom_bg())
         self._refresh_bg_swatch()
+
+        # Reset button — fills the previously-vacated row 9 slot.
+        ttk.Button(
+            sim_group, text="Reset to defaults",
+            bootstyle="outline-secondary",
+            command=self._reset_simulation_settings,
+        ).grid(row=9, column=0, columnspan=2, sticky=tk.E, pady=(8, 0))
+
+    def _reset_simulation_settings(self):
+        """Restore every Simulation-settings widget to its initial value.
+
+        Scope: only widgets inside the Simulation settings LabelFrame.
+        Mode, Animation output, Input (n_colors / image size), and the
+        per-color rows are left alone — they're separate decisions the
+        user makes per-image.
+        """
+        self.max_iter_var.set(10000)
+        self.pattern_strength_var.set(0.7)
+        self.smooth_sigma_var.set(3.0)
+        self.preview_every_var.set(400)
+        self.pixel_art_var.set(False)
+        self.soft_barrier_var.set(True)
+        self.seed_variety_var.set("uniform")
+        self.seed_placement_var.set("anywhere")
+        self.seed_size_min_var.set(rd.DEFAULT_SEED_SIZE_RANGE[0])
+        self.seed_size_max_var.set(rd.DEFAULT_SEED_SIZE_RANGE[1])
+        self.bg_var.set("white")
+        self._refresh_bg_swatch()
+        self.status_label.configure(text="Simulation settings reset to defaults.")
 
     def _install_right_pane_wheel_scroll(self):
         """Route mouse-wheel events to the right pane only when the pointer
