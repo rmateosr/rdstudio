@@ -29,7 +29,7 @@ import numpy as np
 from PIL import Image
 from scipy.ndimage import label as cc_label
 
-import reaction_diffusion as rd
+from . import engine_classic as rd
 
 
 def _laplacian(field, padded, edge_value=0.0):

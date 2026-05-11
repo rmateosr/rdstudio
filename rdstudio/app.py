@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Desktop GUI for image-based Gray-Scott reaction-diffusion.
 
-Wraps reaction_diffusion.py: load an image, quantize its colors, enable or
+Wraps the engine modules: load an image, quantize its colors, enable or
 disable each color, assign a named pattern preset per color, run the simulation
 with a live preview, then save the final composited result. All the simulation
-physics comes from reaction_diffusion.py — this file is the UI layer and a
-background thread that drives the existing simulate() with preview callbacks.
+physics comes from engine_classic / engine_leaky — this file is the UI layer
+and a background thread that drives simulate() with preview callbacks.
 """
 
 import os
@@ -17,8 +17,8 @@ from tkinter import ttk, filedialog, messagebox, colorchooser
 import numpy as np
 from PIL import Image, ImageTk
 
-import reaction_diffusion as rd
-import reaction_diffusion_leaky as rdl
+from . import engine_classic as rd
+from . import engine_leaky as rdl
 
 
 PATTERN_PRESETS = {
