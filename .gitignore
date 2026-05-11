@@ -1,0 +1,46 @@
+# Python bytecode / caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code workspace
+.claude/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.spec
+
+# Generated simulation outputs (kept out of the repo — they belong to the user)
+*_rd.png
+*_rd.gif
+*_rd.mp4
+*_rd_*.png
+*_rd_*.gif
+*_rd_*.mp4
+*_quantized.png
+*_params.tsv
+*_leaky_*.png
+*_edges.png
+*_edges.mp4
+*_wavelet.gif
+*_wavelet.mp4
+
+# Generated thumbnail cache (regenerated on first run)
+pattern_thumbnails/
+
+# Local scratch
+RD_test_*.mp4
