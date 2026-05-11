@@ -1,0 +1,109 @@
+name: Release
+
+# Builds the Windows .exe zip and the macOS .app .dmg whenever:
+#   - a `v*` tag is pushed  → attaches both to a GitHub Release
+#   - the workflow is run manually via "Run workflow" in the Actions tab
+#     (useful to validate the build without cutting a release)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # softprops/action-gh-release needs this to publish
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[build]"
+
+      - name: Build .exe with PyInstaller
+        run: python -m PyInstaller --noconfirm --clean rdstudio.spec
+
+      - name: Zip bundle
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart("v")
+          $name = "Reaction-Diffusion-Studio-$version-windows.zip"
+          Compress-Archive -Path "dist/Reaction-Diffusion Studio/*" `
+                           -DestinationPath $name -Force
+          Write-Host "Created: $name"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: "*.zip"
+
+  build-macos:
+    # macos-latest = Apple Silicon (arm64). Intel binaries would need a
+    # macos-13 runner or a universal2 PyInstaller build; skip for v1.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[build]"
+
+      - name: Build .app with PyInstaller
+        run: python -m PyInstaller --noconfirm --clean rdstudio.spec
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          tag="${{ github.ref_name }}"
+          version="${tag#v}"
+          name="Reaction-Diffusion-Studio-${version}-macos-arm64.dmg"
+          # create-dmg sometimes returns nonzero even when the DMG is fine
+          # (AppleScript / codesigning quirks on unsigned builds). Fall back
+          # to checking that the file exists.
+          create-dmg \
+            --volname "Reaction-Diffusion Studio" \
+            --window-pos 200 120 --window-size 600 400 \
+            --icon-size 100 \
+            --icon "Reaction-Diffusion Studio.app" 175 190 \
+            --app-drop-link 425 190 \
+            "$name" \
+            "dist/Reaction-Diffusion Studio.app" \
+            || true
+          test -f "$name"
+          echo "Created: $name"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: "*.dmg"
+
+  release:
+    # Only publish a GitHub Release for actual tag pushes; manual runs just
+    # produce downloadable artifacts under the workflow run.
+    needs: [build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
