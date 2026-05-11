@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rdstudio"
+version = "0.1.0.dev0"
+description = "Image-based Gray-Scott reaction-diffusion studio with a desktop GUI"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Raul N. Mateos" },
+]
+keywords = [
+    "reaction-diffusion",
+    "gray-scott",
+    "generative-art",
+    "image-processing",
+    "tkinter",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "numpy>=1.24",
+    "Pillow>=9.0",
+    "scikit-learn>=1.0",
+    "scipy>=1.10",
+    "imageio>=2.31",
+    "imageio-ffmpeg>=0.4.9",
+    "platformdirs>=4.0",
+    "ttkbootstrap>=1.10",
+]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0"]
+web   = ["gradio>=4.0"]
+dev   = ["pytest>=7.0"]
+
+[project.scripts]
+rdstudio     = "rdstudio.app:main"
+rdstudio-cli = "rdstudio.engine_classic:main"
+
+[project.urls]
+Homepage = "https://github.com/rmateosr/rdstudio"
+
+[tool.setuptools]
+packages = ["rdstudio"]
