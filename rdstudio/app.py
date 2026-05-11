@@ -10,12 +10,14 @@ and a background thread that drives simulate() with preview callbacks.
 
 import os
 import queue
+import sys
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, colorchooser
 
 import numpy as np
 from PIL import Image, ImageTk
+from platformdirs import user_cache_dir
 
 from . import engine_classic as rd
 from . import engine_leaky as rdl
@@ -30,8 +32,11 @@ from .presets import (
 
 PATTERN_NAMES = ["random"] + list(PATTERN_PRESETS.keys())
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-THUMB_DIR = os.path.join(HERE, "pattern_thumbnails")
+# Thumbnails are cached per user under the platform's standard cache dir
+# (~/Library/Caches/RDStudio on macOS, %LOCALAPPDATA%\RDStudio\Cache on
+# Windows, ~/.cache/RDStudio on Linux). This survives PyInstaller bundles
+# where the package directory is read-only.
+THUMB_DIR = os.path.join(user_cache_dir("RDStudio", "RNMateos"), "pattern_thumbnails")
 THUMB_DISPLAY = 48
 THUMB_SIM_SIZE = 96
 THUMB_ITERS = 4500
@@ -1299,7 +1304,19 @@ class App(tk.Tk):
         return out
 
 
+def _enable_high_dpi():
+    """Tell Windows we want crisp scaling on 4K screens."""
+    if sys.platform != "win32":
+        return
+    try:
+        from ctypes import windll
+        windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+
+
 def main():
+    _enable_high_dpi()
     App().mainloop()
 
 

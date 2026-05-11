@@ -411,12 +411,6 @@ def _stamp_seed(V, comp_mask, y, x, amp, H, W, rng, variety, U=None,
         U[y0:y1, x0:x1][sub] = 0.5
 
 
-def _stamp_patch(V, U, comp_mask, y, x, amp, H, W):
-    """Legacy 3×3 stamp — kept for backward compatibility."""
-    _stamp_seed(V, comp_mask, y, x, amp, H, W,
-                np.random.default_rng(0), "uniform", U=U)
-
-
 def initialize_fields(labels, n_colors, rng, start_density="medium",
                       seed_variety="uniform", seed_placement="anywhere",
                       seed_size_range=DEFAULT_SEED_SIZE_RANGE):

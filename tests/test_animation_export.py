@@ -13,9 +13,10 @@ import tempfile
 import numpy as np
 from PIL import Image
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from rdstudio import engine_classic as rd
-from rdstudio.app import App, DU_DEFAULT, DV_DEFAULT, PATTERN_PRESETS
+from rdstudio.app import App
+from rdstudio.presets import DU_DEFAULT, DV_DEFAULT, PATTERN_PRESETS
 
 
 def make_test_image(size=64):
