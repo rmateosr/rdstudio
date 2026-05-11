@@ -575,7 +575,7 @@ class App(ttkb.Window):
                                        sticky=tk.W, pady=(8, 0))
 
         # Preview every — performance knob, doesn't affect output.
-        self.preview_every_var = tk.IntVar(value=400)
+        self.preview_every_var = tk.IntVar(value=100)
         add_spin(5, "Preview every:", self.preview_every_var,
                  100, 5000, 100, advanced=True)
 
@@ -682,7 +682,7 @@ class App(ttkb.Window):
         self.max_iter_var.set(10000)
         self.pattern_strength_var.set(0.7)
         self.smooth_sigma_var.set(3.0)
-        self.preview_every_var.set(400)
+        self.preview_every_var.set(100)
         self.pixel_art_var.set(False)
         self.soft_barrier_var.set(True)
         self.seed_variety_var.set("uniform")

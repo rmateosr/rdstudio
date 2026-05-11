@@ -426,29 +426,72 @@ biggest payoff per step and never breaks the working app. The current
 `RD_clauded/` folder stays untouched the whole time — all new work happens
 in the new sibling repo.
 
-1. **Create the sibling folder + initial commit** (§1.1) — `git init` inside
-   `rdstudio/`, copy across `app.py`, `reaction_diffusion.py`,
-   `reaction_diffusion_leaky.py`, `requirements.txt`. Verify
-   `python -m rdstudio` still launches the current GUI. This is the safety net.
-2. **Code-level cleanup inside the new repo** (§2.1–2.4) — single source for
-   presets, `parse_bg` extracted, writable cache dir for thumbnails.
-3. **`pyproject.toml` + entry point** (§4) — once this works,
-   `pip install .` produces an `rdstudio` command. Add `ttkbootstrap` to
-   dependencies now so step 4 picks it up.
-4. **UI simplification + ttkbootstrap theming** (§11, §12) — biggest visible
-   win for creative users. Rename labels, add Advanced disclosure, swap to
-   sliders for the creative knobs, apply the theme, add Run-button color
-   accent. Take before/after screenshots.
-5. **Windows PyInstaller build** (§6) — fastest feedback loop since you're on
-   Windows. Once a `.exe` works locally, you know the spec is right.
-6. **GitHub Actions for Mac + Windows** (§8) — push to a branch, let the
-   `macos-latest` runner build the `.app`, download the artifact, test it on
-   any Mac.
-7. **README + LICENSE + first release** (§9, then `git tag v0.1.0`) — ship.
-8. **Gradio demo** (§7) — optional follow-up; nice to link from the README
-   once it exists.
-9. **(Later)** Code signing / notarization if downloads pick up and the
-   Gatekeeper friction is hurting adoption.
+1. ✅ **Create the sibling folder + initial commit** (§1.1) — done.
+2. ✅ **Code-level cleanup inside the new repo** (§2.1–2.4) — `bg.py` and
+   `presets.py` extracted, writable platformdirs cache, dead code removed,
+   tests/scripts relocated.
+3. ✅ **`pyproject.toml` + entry point** (§4) — `rdstudio` and
+   `rdstudio-cli` console scripts work after `pip install -e .`.
+4. ✅ **UI simplification + ttkbootstrap theming** (§11, §12) — labels,
+   sliders, View → Dark menu, Animation output promoted to top, single
+   Pattern picker + Per-color popup, compact swatch strip with
+   theme-aware borders, master pattern thumbnail, Advanced disclosure for
+   niche sim controls, Reset to defaults button. ~11 commits.
+5. ⏳ **Windows PyInstaller build** (§6) — start here next. Fastest
+   feedback loop since the dev machine is Windows. Once a `.exe` works
+   locally, the spec is right.
+6. ⏳ **GitHub Actions for Mac + Windows** (§8) — `macos-latest` runner
+   builds the `.app` without needing a Mac on hand.
+7. ⏳ **README + LICENSE + first release** (§9, then `git tag v0.1.0`).
+   LICENSE is already MIT; README is minimal — flesh out with
+   screenshots, pattern gallery, install instructions per OS.
+8. ⏳ **Gradio demo** (§7) — optional follow-up.
+9. ⏳ **(Later)** Code signing / notarization if Gatekeeper friction
+   starts hurting adoption.
+
+### State at end of step 4
+
+- Working tree clean on `main`.
+- `pip install -e .` works on WSL Python 3.12 and Windows Python 3.14.
+- `python -m rdstudio` (or the `rdstudio` console script if Scripts is
+  on PATH) launches the GUI with the ttkbootstrap `flatly` theme.
+- Right-pane order is: Animation output / Mode / Input / Colors /
+  Simulation settings, then Reset.
+- Single global Pattern picker; `Per color...` opens a modal Toplevel
+  for overrides; main combo shows `(mixed)` when per-color patterns
+  differ. Selecting a real pattern while in mixed state triggers a
+  confirm dialog.
+- Master Pattern combo's inline thumbnail is wired through
+  `master_pattern_var.trace_add("write", ...)`, not
+  `<<ComboboxSelected>>` — the binding early-returned when no image
+  was loaded.
+- Swatch borders use the current theme's fg color and rebuild on
+  theme toggle so white-on-white / black-on-black stays visible.
+
+### Notes for whoever picks this up next (possibly a new session)
+
+- The original `RD_clauded/` repo is **never** touched. All work
+  happens in `rdstudio/` (sibling folder under `Documents/`).
+- User preference: filled `bootstyle="primary"` (or `success` for Run,
+  `danger` for Stop) reads as a "real button"; `outline-*` styles look
+  disabled in the flatly theme — avoid them for primary actions.
+- Animation output is intentionally the **first** group in the right
+  pane (above Mode) — user wanted "do I want a video?" visible
+  without scrolling.
+- For PyInstaller (step 5): install the build extra
+  (`pip install -e .[build]`) then on Windows:
+  ```cmd
+  pyinstaller --windowed --name "Reaction-Diffusion Studio" ^
+              --icon assets\icon.ico ^
+              rdstudio\__main__.py
+  ```
+  Thumbnails already go to `platformdirs.user_cache_dir`, so the
+  bundled `__file__` location doesn't need to be writable. There is
+  **no icon file yet** (`assets/icon.ico` / `.icns` missing); PyInstaller
+  builds without one but the dock/taskbar icon is bland.
+- The Microsoft Store Python on Windows installs console scripts to a
+  Scripts directory that isn't on PATH by default. Document
+  `python -m rdstudio` as the primary launch command in the README.
 
 ---
 
