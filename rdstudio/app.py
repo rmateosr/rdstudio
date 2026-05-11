@@ -18,6 +18,10 @@ from tkinter import ttk, filedialog, messagebox, colorchooser
 import numpy as np
 from PIL import Image, ImageTk
 from platformdirs import user_cache_dir
+import ttkbootstrap as ttkb
+
+# Default theme; user can toggle to "darkly" via View menu (added later).
+DEFAULT_THEME = "flatly"
 
 from . import engine_classic as rd
 from . import engine_leaky as rdl
@@ -176,18 +180,11 @@ class ColorRow:
         return self.density_var.get()
 
 
-class App(tk.Tk):
+class App(ttkb.Window):
     def __init__(self):
-        super().__init__()
+        super().__init__(themename=DEFAULT_THEME)
         self.title("Reaction-Diffusion Studio")
         self.geometry("1180x840")
-
-        try:
-            style = ttk.Style(self)
-            if "clam" in style.theme_names():
-                style.theme_use("clam")
-        except tk.TclError:
-            pass
 
         # Image / quantization state
         self.image_path = None
@@ -234,20 +231,21 @@ class App(tk.Tk):
         toolbar = ttk.Frame(self, padding=(8, 8, 8, 4))
         toolbar.pack(side=tk.TOP, fill=tk.X)
 
-        ttk.Button(toolbar, text="Load image...",
+        ttk.Button(toolbar, text="Load image...", bootstyle="primary",
                    command=self.on_load_image).pack(side=tk.LEFT)
         self.path_label = ttk.Label(toolbar, text="(no image loaded)",
                                     foreground="#666")
         self.path_label.pack(side=tk.LEFT, padx=(10, 0))
 
         self.save_anim_button = ttk.Button(
-            toolbar, text="Save animation as...",
+            toolbar, text="Save animation as...", bootstyle="secondary",
             command=self.on_save_animation, state=tk.DISABLED)
         self.save_anim_button.pack(side=tk.RIGHT, padx=4)
         self.save_button = ttk.Button(toolbar, text="Save output as...",
+                                      bootstyle="primary",
                                       command=self.on_save, state=tk.DISABLED)
         self.save_button.pack(side=tk.RIGHT, padx=4)
-        self.run_button = ttk.Button(toolbar, text="Run",
+        self.run_button = ttk.Button(toolbar, text="Run", bootstyle="success",
                                      command=self.on_run_or_stop,
                                      state=tk.DISABLED)
         self.run_button.pack(side=tk.RIGHT, padx=4)
@@ -939,7 +937,7 @@ class App(tk.Tk):
         self.stop_event.clear()
         self.progress["value"] = 0
         self.status_label.configure(text="Starting...")
-        self.run_button.configure(text="Stop")
+        self.run_button.configure(text="Stop", bootstyle="danger")
         self.save_button.configure(state=tk.DISABLED)
         self.save_anim_button.configure(state=tk.DISABLED)
         self.preview_pil = None
@@ -1164,7 +1162,8 @@ class App(tk.Tk):
                                 f"{e}\n\n{traceback.format_exc()}"))
 
     def _finish_sim(self, success, stopped=False, error=None):
-        self.run_button.configure(text="Run", state=tk.NORMAL)
+        self.run_button.configure(text="Run", bootstyle="success",
+                                  state=tk.NORMAL)
         if success:
             self.progress["value"] = 100
             self.status_label.configure(text="Done.")
