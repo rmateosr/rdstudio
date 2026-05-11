@@ -90,15 +90,15 @@ Two modes to try:
 
 <table>
 <tr>
-  <td align="center"><img src="pattern_thumbnails/coral.png" width="96"><br><b>coral</b></td>
-  <td align="center"><img src="pattern_thumbnails/labyrinth.png" width="96"><br><b>labyrinth</b></td>
-  <td align="center"><img src="pattern_thumbnails/maze.png" width="96"><br><b>maze</b></td>
-  <td align="center"><img src="pattern_thumbnails/short_worms.png" width="96"><br><b>short worms</b></td>
+  <td align="center"><img src="assets/gallery/coral.png" width="96"><br><b>coral</b></td>
+  <td align="center"><img src="assets/gallery/labyrinth.png" width="96"><br><b>labyrinth</b></td>
+  <td align="center"><img src="assets/gallery/maze.png" width="96"><br><b>maze</b></td>
+  <td align="center"><img src="assets/gallery/short_worms.png" width="96"><br><b>short worms</b></td>
 </tr>
 <tr>
-  <td align="center"><img src="pattern_thumbnails/sparse_stripes.png" width="96"><br><b>sparse stripes</b></td>
-  <td align="center"><img src="pattern_thumbnails/sparse_worms.png" width="96"><br><b>sparse worms</b></td>
-  <td align="center"><img src="pattern_thumbnails/stripe_fragments.png" width="96"><br><b>stripe fragments</b></td>
+  <td align="center"><img src="assets/gallery/sparse_stripes.png" width="96"><br><b>sparse stripes</b></td>
+  <td align="center"><img src="assets/gallery/sparse_worms.png" width="96"><br><b>sparse worms</b></td>
+  <td align="center"><img src="assets/gallery/stripe_fragments.png" width="96"><br><b>stripe fragments</b></td>
   <td></td>
 </tr>
 </table>
