@@ -185,6 +185,7 @@ class App(ttkb.Window):
         super().__init__(themename=DEFAULT_THEME)
         self.title("Reaction-Diffusion Studio")
         self.geometry("1180x840")
+        self._build_menu()
 
         # Image / quantization state
         self.image_path = None
@@ -227,6 +228,26 @@ class App(ttkb.Window):
 
     # ---------- UI construction ----------
 
+    def _build_menu(self):
+        """File / View menu bar — currently just the theme toggle."""
+        menubar = tk.Menu(self)
+        view_menu = tk.Menu(menubar, tearoff=False)
+        view_menu.add_command(
+            label="Light theme",
+            command=lambda: self._set_theme("flatly"))
+        view_menu.add_command(
+            label="Dark theme",
+            command=lambda: self._set_theme("darkly"))
+        menubar.add_cascade(label="View", menu=view_menu)
+        self.config(menu=menubar)
+
+    def _set_theme(self, name):
+        """Live-swap the ttkbootstrap theme."""
+        try:
+            ttkb.Style().theme_use(name)
+        except tk.TclError:
+            pass
+
     def _build_ui(self):
         toolbar = ttk.Frame(self, padding=(8, 8, 8, 4))
         toolbar.pack(side=tk.TOP, fill=tk.X)
@@ -238,10 +259,10 @@ class App(ttkb.Window):
         self.path_label.pack(side=tk.LEFT, padx=(10, 0))
 
         self.save_anim_button = ttk.Button(
-            toolbar, text="Save animation as...", bootstyle="secondary",
+            toolbar, text="Save video as...", bootstyle="secondary",
             command=self.on_save_animation, state=tk.DISABLED)
         self.save_anim_button.pack(side=tk.RIGHT, padx=4)
-        self.save_button = ttk.Button(toolbar, text="Save output as...",
+        self.save_button = ttk.Button(toolbar, text="Save image as...",
                                       bootstyle="primary",
                                       command=self.on_save, state=tk.DISABLED)
         self.save_button.pack(side=tk.RIGHT, padx=4)
@@ -332,13 +353,13 @@ class App(ttkb.Window):
         mode_group.pack(fill=tk.X, padx=6, pady=(6, 0))
         self.mode_var = tk.StringVar(value="classic")
         ttk.Radiobutton(
-            mode_group, text="Isolated zones (classic)",
+            mode_group, text="Sharp zones — colors stay in their region",
             variable=self.mode_var, value="classic",
             command=self._on_mode_changed,
         ).pack(anchor=tk.W)
         ttk.Radiobutton(
             mode_group,
-            text="Leaky channels (no walls; colors carried by V)",
+            text="Bleeding colors — patterns drift across the image",
             variable=self.mode_var, value="leaky",
             command=self._on_mode_changed,
         ).pack(anchor=tk.W)
@@ -357,7 +378,7 @@ class App(ttkb.Window):
         self.n_colors_var.trace_add(
             "write", lambda *a: self._schedule_quantize())
 
-        ttk.Label(input_group, text="Working size:").grid(
+        ttk.Label(input_group, text="Image size:").grid(
             row=1, column=0, sticky=tk.W, pady=2)
         self.size_preset_var = tk.StringVar(value=DEFAULT_SIZE_PRESET)
         preset_values = list(SIZE_PRESETS.keys()) + ["Custom"]
@@ -424,6 +445,7 @@ class App(ttkb.Window):
         sim_group = ttk.LabelFrame(right_inner, text="Simulation settings",
                                    padding=6)
         sim_group.pack(fill=tk.X, padx=6, pady=6)
+        sim_group.columnconfigure(1, weight=1)  # sliders expand into column 1
 
         def add_spin(r, label, var, frm, to, inc, fmt=None):
             ttk.Label(sim_group, text=label).grid(
@@ -435,14 +457,33 @@ class App(ttkb.Window):
             ttk.Spinbox(sim_group, **kwargs).grid(
                 row=r, column=1, sticky=tk.W, pady=2)
 
+        def add_slider(r, label, var, frm, to, fmt="%.2f"):
+            """Slider + live value label — used for creative knobs that
+            communicate 'drag me' better than a numeric spinbox."""
+            ttk.Label(sim_group, text=label).grid(
+                row=r, column=0, sticky=tk.W, pady=2)
+            row_frame = ttk.Frame(sim_group)
+            row_frame.grid(row=r, column=1, sticky=tk.EW, pady=2)
+            row_frame.columnconfigure(0, weight=1)
+            value_lbl = ttk.Label(row_frame, text=fmt % var.get(),
+                                  width=6, anchor=tk.E,
+                                  font=("Courier", 9))
+            value_lbl.grid(row=0, column=1, sticky=tk.E, padx=(6, 0))
+            scale = ttk.Scale(
+                row_frame, from_=frm, to=to, variable=var,
+                orient=tk.HORIZONTAL,
+                command=lambda v: value_lbl.configure(text=fmt % float(v)))
+            scale.grid(row=0, column=0, sticky=tk.EW)
+
         self.max_iter_var = tk.IntVar(value=10000)
-        add_spin(0, "Max iterations:", self.max_iter_var, 500, 50000, 500)
+        add_spin(0, "Simulation length (iterations):", self.max_iter_var,
+                 500, 50000, 500)
         self.pattern_strength_var = tk.DoubleVar(value=0.7)
-        add_spin(1, "Pattern strength:", self.pattern_strength_var,
-                 0.1, 1.0, 0.05, fmt="%.2f")
+        add_slider(1, "Pattern boldness:", self.pattern_strength_var,
+                   0.1, 1.0, fmt="%.2f")
         self.smooth_sigma_var = tk.DoubleVar(value=3.0)
-        add_spin(2, "Smooth sigma:", self.smooth_sigma_var,
-                 0.0, 10.0, 0.5, fmt="%.1f")
+        add_slider(2, "Edge softness:", self.smooth_sigma_var,
+                   0.0, 10.0, fmt="%.1f")
         self.preview_every_var = tk.IntVar(value=400)
         add_spin(3, "Preview every:", self.preview_every_var, 100, 5000, 100)
 
@@ -453,7 +494,7 @@ class App(ttkb.Window):
         self.pixel_art_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             sim_group,
-            text="Pixel art mode (V/H neighbors only, no diagonal smoothing)",
+            text="Pixel-perfect edges (no diagonal smoothing)",
             variable=self.pixel_art_var,
         ).grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(4, 0))
 
@@ -465,7 +506,7 @@ class App(ttkb.Window):
         self.soft_barrier_var = tk.BooleanVar(value=True)
         self.soft_barrier_check = ttk.Checkbutton(
             sim_group,
-            text="Soft zone barrier (wall = natural trough, no fade gap)",
+            text="Smooth zone walls (no fade gap between colors)",
             variable=self.soft_barrier_var,
         )
         self.soft_barrier_check.grid(row=6, column=0, columnspan=2,
@@ -475,7 +516,7 @@ class App(ttkb.Window):
         # placement = where anchors are dropped. "edges" suppresses interior
         # seeds and the noise floor so patterns must grow inward from the
         # zone outline.
-        ttk.Label(sim_group, text="Seeds:").grid(
+        ttk.Label(sim_group, text="Starting pattern:").grid(
             row=7, column=0, sticky=tk.W, pady=(4, 0))
         seed_frame = ttk.Frame(sim_group)
         seed_frame.grid(row=7, column=1, sticky=tk.W, pady=(4, 0))
@@ -834,7 +875,7 @@ class App(ttkb.Window):
             return
         if n < 2 or n > 100:
             return
-        self.status_label.configure(text=f"Quantizing ({n} colors)...")
+        self.status_label.configure(text=f"Picking {n} colors...")
         self.update_idletasks()
         labels, palette = rd.quantize_colors(self.working_image, n, self.rng)
         self.labels = labels
@@ -843,7 +884,7 @@ class App(ttkb.Window):
         self._rebuild_color_rows()
         if self.view_var.get() == "quantized":
             self._refresh_preview()
-        self.status_label.configure(text=f"Quantized to {n} colors.")
+        self.status_label.configure(text=f"Found {n} colors.")
 
     def _rebuild_color_rows(self):
         # Preserve (enabled, pattern, density) for indices that still exist.
@@ -1035,13 +1076,13 @@ class App(ttkb.Window):
 
             if smooth_sigma > 0:
                 self.msg_queue.put(
-                    ("progress", 0.0, "Smoothing zone boundaries..."))
+                    ("progress", 0.0, "Smoothing edges..."))
                 labels, soft_masks = rd.smooth_zone_boundaries(
                     labels, n_colors, smooth_sigma)
             else:
                 soft_masks = None
 
-            self.msg_queue.put(("progress", 0.0, "Preparing fields..."))
+            self.msg_queue.put(("progress", 0.0, "Setting up the pattern..."))
             Du_map, Dv_map, f_map, k_map = rd.build_parameter_maps(
                 labels, params)
             same_color_masks, U_pad, V_pad = rd.precompute_neighbor_masks(
@@ -1110,11 +1151,11 @@ class App(ttkb.Window):
             # across them — soft_masks aren't used by the leaky compositor.
             if smooth_sigma > 0:
                 self.msg_queue.put(
-                    ("progress", 0.0, "Smoothing zone boundaries..."))
+                    ("progress", 0.0, "Smoothing edges..."))
                 labels, _ = rd.smooth_zone_boundaries(
                     labels, n_colors, smooth_sigma)
 
-            self.msg_queue.put(("progress", 0.0, "Preparing fields..."))
+            self.msg_queue.put(("progress", 0.0, "Setting up the pattern..."))
             U, V_stack = rdl.initialize_fields_leaky(
                 labels, n_colors, rng, enabled_mask,
                 seed_variety=seed_variety,
@@ -1170,7 +1211,7 @@ class App(ttkb.Window):
             self.status_label.configure(text="Done.")
             self.save_button.configure(state=tk.NORMAL)
         elif stopped:
-            self.status_label.configure(text="Stopped.")
+            self.status_label.configure(text="Stopped at your request.")
         else:
             self.status_label.configure(text="Error.")
             if error:
