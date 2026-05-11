@@ -492,25 +492,32 @@ class App(ttkb.Window):
         sim_group.pack(fill=tk.X, padx=6, pady=6)
         sim_group.columnconfigure(1, weight=1)  # sliders expand into column 1
 
-        def add_spin(r, label, var, frm, to, inc, fmt=None):
-            ttk.Label(sim_group, text=label).grid(
-                row=r, column=0, sticky=tk.W, pady=2)
+        # Widgets that hide behind '▸ Advanced'. Tracked here so the toggle
+        # can grid_remove / grid them as a batch.
+        self._advanced_widgets = []
+        self._advanced_visible = False
+
+        def add_spin(r, label, var, frm, to, inc, fmt=None, advanced=False):
+            lbl = ttk.Label(sim_group, text=label)
+            lbl.grid(row=r, column=0, sticky=tk.W, pady=2)
             kwargs = dict(from_=frm, to=to, increment=inc, width=10,
                           textvariable=var)
             if fmt:
                 kwargs["format"] = fmt
-            ttk.Spinbox(sim_group, **kwargs).grid(
-                row=r, column=1, sticky=tk.W, pady=2)
+            spin = ttk.Spinbox(sim_group, **kwargs)
+            spin.grid(row=r, column=1, sticky=tk.W, pady=2)
+            if advanced:
+                self._advanced_widgets.extend([lbl, spin])
 
-        def add_slider(r, label, var, frm, to, fmt="%.2f"):
+        def add_slider(r, label, var, frm, to, fmt="%.2f", advanced=False):
             """Slider + live value label — used for creative knobs that
             communicate 'drag me' better than a numeric spinbox.
 
             The label tracks the var via trace_add, so programmatic
             updates (e.g. Reset to defaults) refresh it too.
             """
-            ttk.Label(sim_group, text=label).grid(
-                row=r, column=0, sticky=tk.W, pady=2)
+            lbl = ttk.Label(sim_group, text=label)
+            lbl.grid(row=r, column=0, sticky=tk.W, pady=2)
             row_frame = ttk.Frame(sim_group)
             row_frame.grid(row=r, column=1, sticky=tk.EW, pady=2)
             row_frame.columnconfigure(0, weight=1)
@@ -527,7 +534,10 @@ class App(ttkb.Window):
             ttk.Scale(row_frame, from_=frm, to=to, variable=var,
                       orient=tk.HORIZONTAL).grid(
                 row=0, column=0, sticky=tk.EW)
+            if advanced:
+                self._advanced_widgets.extend([lbl, row_frame])
 
+        # --- Always-visible rows ---
         self.max_iter_var = tk.IntVar(value=10000)
         add_spin(0, "Simulation length (iterations):", self.max_iter_var,
                  500, 50000, 500)
@@ -537,74 +547,11 @@ class App(ttkb.Window):
         self.smooth_sigma_var = tk.DoubleVar(value=3.0)
         add_slider(2, "Edge softness:", self.smooth_sigma_var,
                    0.0, 10.0, fmt="%.1f")
-        self.preview_every_var = tk.IntVar(value=400)
-        add_spin(3, "Preview every:", self.preview_every_var, 100, 5000, 100)
 
-        # Pixel-art mode: disables Gaussian boundary smoothing (which is the
-        # only step that lets diagonal neighbors influence a pixel's zone).
-        # When checked, zone boundaries stay pixel-exact and only V/H
-        # neighbors participate anywhere in the pipeline.
-        self.pixel_art_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            sim_group,
-            text="Pixel-perfect edges (no diagonal smoothing)",
-            variable=self.pixel_art_var,
-        ).grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(4, 0))
-
-        # Soft barrier: cross-zone neighbor uses U=1, V=0 — the natural pattern
-        # trough state. Substrate is replenished at the wall instead of drained,
-        # so patterns grow right up to the edge with no fade gap. Unchecked =
-        # hard Dirichlet (U=0, V=0 outside): substrate drains, pattern fades
-        # back over a half-wavelength, visible gap between colors.
-        self.soft_barrier_var = tk.BooleanVar(value=True)
-        self.soft_barrier_check = ttk.Checkbutton(
-            sim_group,
-            text="Smooth zone walls (no fade gap between colors)",
-            variable=self.soft_barrier_var,
-        )
-        self.soft_barrier_check.grid(row=6, column=0, columnspan=2,
-                                     sticky=tk.W, pady=(2, 0))
-
-        # Seeding controls (global). Variety = shape mix used at each anchor;
-        # placement = where anchors are dropped. "edges" suppresses interior
-        # seeds and the noise floor so patterns must grow inward from the
-        # zone outline.
-        ttk.Label(sim_group, text="Starting pattern:").grid(
-            row=7, column=0, sticky=tk.W, pady=(4, 0))
-        seed_frame = ttk.Frame(sim_group)
-        seed_frame.grid(row=7, column=1, sticky=tk.W, pady=(4, 0))
-        self.seed_variety_var = tk.StringVar(value="uniform")
-        ttk.Combobox(seed_frame, values=list(rd.SEED_VARIETY_NAMES),
-                     textvariable=self.seed_variety_var,
-                     state="readonly", width=8).pack(side=tk.LEFT)
-        self.seed_placement_var = tk.StringVar(value="anywhere")
-        ttk.Combobox(seed_frame, values=list(rd.SEED_PLACEMENT_NAMES),
-                     textvariable=self.seed_placement_var,
-                     state="readonly", width=9).pack(side=tk.LEFT, padx=(4, 0))
-
-        # Seed size range — only used when variety = "mixed". Each seed
-        # picks a random bounding-box side uniformly in [min, max], then
-        # fills it with Bernoulli noise. Default 1..9 keeps current
-        # behavior; raise the max for chunkier seeds, raise the min to
-        # avoid tiny single-pixel dots.
-        ttk.Label(sim_group, text="Seed size:").grid(
-            row=8, column=0, sticky=tk.W, pady=(2, 0))
-        size_frame = ttk.Frame(sim_group)
-        size_frame.grid(row=8, column=1, sticky=tk.W, pady=(2, 0))
-        self.seed_size_min_var = tk.IntVar(value=rd.DEFAULT_SEED_SIZE_RANGE[0])
-        self.seed_size_max_var = tk.IntVar(value=rd.DEFAULT_SEED_SIZE_RANGE[1])
-        ttk.Spinbox(size_frame, from_=1, to=50, increment=1, width=4,
-                    textvariable=self.seed_size_min_var).pack(side=tk.LEFT)
-        ttk.Label(size_frame, text=" to ").pack(side=tk.LEFT)
-        ttk.Spinbox(size_frame, from_=1, to=50, increment=1, width=4,
-                    textvariable=self.seed_size_max_var).pack(side=tk.LEFT)
-        ttk.Label(size_frame, text="  (mixed only)",
-                  foreground="#666").pack(side=tk.LEFT, padx=(4, 0))
-
-        ttk.Label(sim_group, text="Background:").grid(
-            row=4, column=0, sticky=tk.W, pady=2)
+        bg_label = ttk.Label(sim_group, text="Background:")
+        bg_label.grid(row=3, column=0, sticky=tk.W, pady=2)
         bg_frame = ttk.Frame(sim_group)
-        bg_frame.grid(row=4, column=1, sticky=tk.W, pady=2)
+        bg_frame.grid(row=3, column=1, sticky=tk.W, pady=2)
         self.bg_var = tk.StringVar(value="white")
         self.bg_custom_hex = "#808080"  # remembered between "custom..." picks
         bg_combo = ttk.Combobox(
@@ -619,14 +566,110 @@ class App(ttkb.Window):
         self.bg_swatch.bind("<Button-1>", lambda e: self._pick_custom_bg())
         self._refresh_bg_swatch()
 
-        # Reset button — fills the previously-vacated row 9 slot.
+        # --- Advanced disclosure ---
+        self._advanced_toggle_btn = ttk.Button(
+            sim_group, text="▸ Advanced",
+            bootstyle="link",
+            command=self._toggle_advanced)
+        self._advanced_toggle_btn.grid(row=4, column=0, columnspan=2,
+                                       sticky=tk.W, pady=(8, 0))
+
+        # Preview every — performance knob, doesn't affect output.
+        self.preview_every_var = tk.IntVar(value=400)
+        add_spin(5, "Preview every:", self.preview_every_var,
+                 100, 5000, 100, advanced=True)
+
+        # Pixel-art mode: disables Gaussian boundary smoothing (which is the
+        # only step that lets diagonal neighbors influence a pixel's zone).
+        # When checked, zone boundaries stay pixel-exact and only V/H
+        # neighbors participate anywhere in the pipeline.
+        self.pixel_art_var = tk.BooleanVar(value=False)
+        pixel_chk = ttk.Checkbutton(
+            sim_group,
+            text="Pixel-perfect edges (no diagonal smoothing)",
+            variable=self.pixel_art_var,
+        )
+        pixel_chk.grid(row=6, column=0, columnspan=2, sticky=tk.W, pady=(4, 0))
+        self._advanced_widgets.append(pixel_chk)
+
+        # Soft barrier: cross-zone neighbor uses U=1, V=0 — the natural pattern
+        # trough state. Substrate is replenished at the wall instead of drained,
+        # so patterns grow right up to the edge with no fade gap. Unchecked =
+        # hard Dirichlet (U=0, V=0 outside): substrate drains, pattern fades
+        # back over a half-wavelength, visible gap between colors.
+        self.soft_barrier_var = tk.BooleanVar(value=True)
+        self.soft_barrier_check = ttk.Checkbutton(
+            sim_group,
+            text="Smooth zone walls (no fade gap between colors)",
+            variable=self.soft_barrier_var,
+        )
+        self.soft_barrier_check.grid(row=7, column=0, columnspan=2,
+                                     sticky=tk.W, pady=(2, 0))
+        self._advanced_widgets.append(self.soft_barrier_check)
+
+        # Seeding controls (global). Variety = shape mix used at each anchor;
+        # placement = where anchors are dropped. "edges" suppresses interior
+        # seeds and the noise floor so patterns must grow inward from the
+        # zone outline.
+        seeds_label = ttk.Label(sim_group, text="Starting pattern:")
+        seeds_label.grid(row=8, column=0, sticky=tk.W, pady=(4, 0))
+        seed_frame = ttk.Frame(sim_group)
+        seed_frame.grid(row=8, column=1, sticky=tk.W, pady=(4, 0))
+        self.seed_variety_var = tk.StringVar(value="uniform")
+        ttk.Combobox(seed_frame, values=list(rd.SEED_VARIETY_NAMES),
+                     textvariable=self.seed_variety_var,
+                     state="readonly", width=8).pack(side=tk.LEFT)
+        self.seed_placement_var = tk.StringVar(value="anywhere")
+        ttk.Combobox(seed_frame, values=list(rd.SEED_PLACEMENT_NAMES),
+                     textvariable=self.seed_placement_var,
+                     state="readonly", width=9).pack(side=tk.LEFT, padx=(4, 0))
+        self._advanced_widgets.extend([seeds_label, seed_frame])
+
+        # Seed size range — only used when variety = "mixed". Each seed
+        # picks a random bounding-box side uniformly in [min, max], then
+        # fills it with Bernoulli noise. Default 1..9 keeps current
+        # behavior; raise the max for chunkier seeds, raise the min to
+        # avoid tiny single-pixel dots.
+        seed_size_label = ttk.Label(sim_group, text="Seed size:")
+        seed_size_label.grid(row=9, column=0, sticky=tk.W, pady=(2, 0))
+        size_frame = ttk.Frame(sim_group)
+        size_frame.grid(row=9, column=1, sticky=tk.W, pady=(2, 0))
+        self.seed_size_min_var = tk.IntVar(value=rd.DEFAULT_SEED_SIZE_RANGE[0])
+        self.seed_size_max_var = tk.IntVar(value=rd.DEFAULT_SEED_SIZE_RANGE[1])
+        ttk.Spinbox(size_frame, from_=1, to=50, increment=1, width=4,
+                    textvariable=self.seed_size_min_var).pack(side=tk.LEFT)
+        ttk.Label(size_frame, text=" to ").pack(side=tk.LEFT)
+        ttk.Spinbox(size_frame, from_=1, to=50, increment=1, width=4,
+                    textvariable=self.seed_size_max_var).pack(side=tk.LEFT)
+        ttk.Label(size_frame, text="  (mixed only)",
+                  foreground="#666").pack(side=tk.LEFT, padx=(4, 0))
+        self._advanced_widgets.extend([seed_size_label, size_frame])
+
+        # Reset button — bottom of the group, below the advanced section.
         # 'primary' matches the boldness of Load image / Apply so the
         # button reads as clearly clickable.
         ttk.Button(
             sim_group, text="Reset to defaults",
             bootstyle="primary",
             command=self._reset_simulation_settings,
-        ).grid(row=9, column=0, columnspan=2, sticky=tk.E, pady=(8, 0))
+        ).grid(row=10, column=0, columnspan=2, sticky=tk.E, pady=(8, 0))
+
+        # Hide advanced rows initially.
+        self._update_advanced_visibility()
+
+    def _toggle_advanced(self):
+        self._advanced_visible = not self._advanced_visible
+        self._update_advanced_visibility()
+
+    def _update_advanced_visibility(self):
+        for w in self._advanced_widgets:
+            if self._advanced_visible:
+                w.grid()
+            else:
+                w.grid_remove()
+        self._advanced_toggle_btn.configure(
+            text="▾ Advanced" if self._advanced_visible
+            else "▸ Advanced")
 
     def _reset_simulation_settings(self):
         """Restore every Simulation-settings widget to its initial value.
