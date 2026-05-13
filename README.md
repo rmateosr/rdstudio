@@ -17,7 +17,8 @@ textures inside each color region. Save the result as a still or a video.
 
 | Platform | Link | Notes |
 |---|---|---|
-| **macOS** (Apple Silicon, M1/M2/M3/M4) | [**Download `.dmg`**](https://github.com/rmateosr/rdstudio/releases/latest) | Intel Macs not supported in v0.1.0 |
+| **macOS** (Apple Silicon, M1/M2/M3/M4) | [**Download `.dmg`** (`-arm64`)](https://github.com/rmateosr/rdstudio/releases/latest) | Native build for M-series Macs |
+| **macOS** (Intel, pre-2020) | [**Download `.dmg`** (`-x86_64`)](https://github.com/rmateosr/rdstudio/releases/latest) | Native build for Intel Macs |
 | **Windows** (10 / 11, 64-bit) | [**Download `.zip`**](https://github.com/rmateosr/rdstudio/releases/latest) | Roughly 100 MB |
 
 Pick your platform on the GitHub Releases page, click the file, save it

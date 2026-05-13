@@ -47,9 +47,20 @@ jobs:
           path: "*.zip"
 
   build-macos:
-    # macos-latest = Apple Silicon (arm64). Intel binaries would need a
-    # macos-13 runner or a universal2 PyInstaller build; skip for v1.
-    runs-on: macos-latest
+    # Build natively on each macOS arch. macos-14+ runners are Apple
+    # Silicon (arm64); macos-13 is the last Intel (x86_64) runner GitHub
+    # provides. A single universal2 build is possible in principle, but
+    # would require universal2 wheels for every dep — too fragile, so
+    # we ship two native DMGs instead.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,7 +82,7 @@ jobs:
           brew install create-dmg
           tag="${{ github.ref_name }}"
           version="${tag#v}"
-          name="Reaction-Diffusion-Studio-${version}-macos-arm64.dmg"
+          name="Reaction-Diffusion-Studio-${version}-macos-${{ matrix.arch }}.dmg"
           # create-dmg sometimes returns nonzero even when the DMG is fine
           # (AppleScript / codesigning quirks on unsigned builds). Fall back
           # to checking that the file exists.
@@ -89,7 +100,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-dmg
+          name: macos-dmg-${{ matrix.arch }}
           path: "*.dmg"
 
   release:
