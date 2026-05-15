@@ -685,7 +685,11 @@ function createWorker() {
   worker = new Worker("worker.js");
   worker.onmessage = handleWorkerMessage;
   worker.onerror = (e) => {
-    setStatus(`Engine error: ${e.message}`);
+    const msg = e.message || "Unknown worker error";
+    loaderText.style.color = "var(--red)";
+    loaderText.textContent = `Engine error: ${msg}`;
+    initFill.style.width = "0%";
+    setStatus(`Engine error: ${msg}`);
     simRunning = false;
     resetRunUI();
   };
@@ -693,9 +697,11 @@ function createWorker() {
 
 const initSteps = { "loading": 0, "ready": 100 };
 const initFills = {
-  "Loading Python runtime…": 20,
-  "Loading scientific packages (numpy, scipy, sklearn)…": 60,
-  "Loading engine modules…": 85,
+  "Loading Python runtime…":   15,
+  "Loading numpy / scipy…":    35,
+  "Loading scikit-learn…":     55,
+  "Loading Pillow…":           70,
+  "Loading engine modules…":   85,
 };
 
 /* ── Worker message handler ─────────────────────────────── */
@@ -762,7 +768,15 @@ function handleWorkerMessage({ data }) {
     }
 
     case "error": {
-      setStatus(`Error: ${data.msg}`);
+      const msg = data.msg || "Unknown error";
+      // Show in loader box if engine never became ready
+      if (!engineReady) {
+        loaderText.style.color = "var(--red)";
+        loaderText.textContent = `Error: ${msg}`;
+        initFill.style.width = "0%";
+      }
+      setStatus(`Error: ${msg}`);
+      console.error("[rdstudio worker error]", msg);
       simRunning = false;
       resetRunUI();
       break;
@@ -960,10 +974,10 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 /* ── Boot ───────────────────────────────────────────────── */
 createWorker();
 
-// Fallback status if engine takes long
+// Stall warning — normal on first visit (50 MB download); real errors show in red above
 setTimeout(() => {
   if (!engineReady) {
-    loaderText.textContent = "Still loading… (first visit downloads ~50 MB, cached after)";
+    loaderText.textContent = "Still loading… first visit downloads ~50 MB — please wait. If stuck >2 min, open browser DevTools (F12) → Console for errors.";
   }
 }, 8000);
 </script>

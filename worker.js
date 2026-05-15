@@ -157,8 +157,14 @@ async function init() {
   postMessage({ type: "loading", msg: "Loading Python runtime…" });
   const pyodide = await loadPyodide();
 
-  postMessage({ type: "loading", msg: "Loading scientific packages (numpy, scipy, sklearn)…" });
-  await pyodide.loadPackage(["numpy", "scipy", "scikit-learn", "pillow"]);
+  postMessage({ type: "loading", msg: "Loading numpy / scipy…" });
+  await pyodide.loadPackage(["numpy", "scipy"]);
+
+  postMessage({ type: "loading", msg: "Loading scikit-learn…" });
+  await pyodide.loadPackage(["scikit-learn"]);
+
+  postMessage({ type: "loading", msg: "Loading Pillow…" });
+  await pyodide.loadPackage(["Pillow"]);
 
   postMessage({ type: "loading", msg: "Loading engine modules…" });
   const base = self.location.href.replace(/worker\.js[^/]*$/, "");
