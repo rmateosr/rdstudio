@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reaction-Diffusion Studio</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #111318;
+  --surface:  #1c2029;
+  --border:   #2e3340;
+  --text:     #e8eaf0;
+  --muted:    #7b8198;
+  --accent:   #5b8cf7;
+  --green:    #4caf82;
+  --red:      #e05c6a;
+  --yellow:   #f5c842;
+  --radius:   8px;
+  --ctrl-w:   310px;
+}
+
+body {
+  font: 13px/1.5 system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+header h1 { font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+header .sub { font-size: 12px; color: var(--muted); }
+header a { color: var(--accent); text-decoration: none; font-size: 12px; margin-left: auto; }
+
+/* ── Layout ─────────────────────────────────────────────── */
+#app {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Controls panel ─────────────────────────────────────── */
+#controls {
+  width: var(--ctrl-w);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px 10px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Output panel ───────────────────────────────────────── */
+#output {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+/* ── Sections ───────────────────────────────────────────── */
+.section {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+/* ── Upload zone ────────────────────────────────────────── */
+#drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: var(--bg);
+}
+#drop-zone:hover, #drop-zone.drag-over {
+  border-color: var(--accent);
+  background: #161b2a;
+}
+#drop-zone p { color: var(--muted); font-size: 12px; }
+#drop-zone strong { color: var(--text); }
+#file-input { display: none; }
+#thumb { max-width: 100%; max-height: 120px; border-radius: 4px; display: none; margin: 8px auto 0; }
+
+/* ── Palette swatches ───────────────────────────────────── */
+#palette-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-height: 36px;
+}
+.swatch-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.swatch.disabled { opacity: .35; }
+.swatch-check {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Controls ───────────────────────────────────────────── */
+label.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+label.row:last-child { margin-bottom: 0; }
+.label-text { color: var(--text); font-size: 12px; flex-shrink: 0; }
+.val-text { color: var(--accent); font-size: 12px; min-width: 28px; text-align: right; }
+
+input[type=range] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+select, input[type=color] {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 12px;
+  padding: 3px 6px;
+}
+select { min-width: 90px; }
+input[type=color] {
+  width: 40px;
+  height: 26px;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+
+/* ── Per-color section ──────────────────────────────────── */
+details summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--accent);
+  padding: 2px 0;
+  list-style: none;
+  user-select: none;
+}
+details summary::before { content: "▶ "; font-size: 10px; }
+details[open] summary::before { content: "▼ "; }
+#per-color-rows { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.color-row .mini-swatch {
+  width: 18px; height: 18px; border-radius: 3px; flex-shrink: 0;
+}
+.color-row select { flex: 1; font-size: 11px; padding: 2px 4px; }
+
+/* ── Radio group ────────────────────────────────────────── */
+.radio-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.radio-group input { accent-color: var(--accent); }
+
+/* ── Buttons ────────────────────────────────────────────── */
+.btn-row { display: flex; gap: 8px; }
+button {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+button:disabled { opacity: .4; cursor: not-allowed; }
+#btn-run   { background: var(--green); color: #fff; }
+#btn-stop  { background: var(--red);   color: #fff; display: none; }
+#btn-save  { background: var(--accent); color: #fff; font-size: 12px; }
+#btn-video { background: #3a4060; color: var(--text); font-size: 12px; }
+
+/* ── Loader bar ─────────────────────────────────────────── */
+#loader {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 0;
+}
+.progress-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width .3s;
+  border-radius: 2px;
+}
+
+/* ── Output area ────────────────────────────────────────── */
+#canvas-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+#canvas-placeholder {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+canvas {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 24px #0006;
+  display: none;
+}
+#status-bar {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  min-height: 18px;
+}
+#progress-wrap { width: 100%; max-width: 500px; }
+#save-row { display: flex; gap: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Reaction-Diffusion Studio</h1>
+  <span class="sub">Web · powered by Pyodide</span>
+  <a href="https://github.com/rmateosr/rdstudio" target="_blank">GitHub ↗</a>
+</header>
+
+<div id="app">
+
+<!-- ── Controls ─────────────────────────────────────────── -->
+<aside id="controls">
+
+  <!-- Loading indicator -->
+  <div class="section" id="loader-section">
+    <div id="loader">Initializing engine…</div>
+    <div class="progress-bar"><div class="progress-fill" id="init-fill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Upload -->
+  <div class="section">
+    <div class="section-title">Image</div>
+    <div id="drop-zone">
+      <p><strong>Drop image here</strong><br>or click to browse</p>
+      <img id="thumb" alt="preview">
+    </div>
+    <input type="file" id="file-input" accept="image/*">
+  </div>
+
+  <!-- Palette + per-color -->
+  <div class="section" id="palette-section" style="display:none">
+    <div class="section-title">Colors</div>
+    <div id="palette-row"></div>
+    <details id="per-color-details" style="margin-top:10px">
+      <summary>Per-color patterns</summary>
+      <div id="per-color-rows"></div>
+    </details>
+  </div>
+
+  <!-- Pattern -->
+  <div class="section">
+    <div class="section-title">Pattern</div>
+    <label class="row">
+      <span class="label-text">Global preset</span>
+      <select id="sel-pattern"></select>
+    </label>
+  </div>
+
+  <!-- Simulation -->
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <label class="row">
+      <span class="label-text">Image size</span>
+      <select id="sel-size">
+        <option value="512">Small (512 px)</option>
+        <option value="1024" selected>Medium (1024 px)</option>
+        <option value="1536">Large (1536 px)</option>
+        <option value="2048">Giant (2048 px)</option>
+      </select>
+    </label>
+    <label class="row">
+      <span class="label-text">Length</span>
+      <select id="sel-length">
+        <option value="2000">Short (2 k)</option>
+        <option value="5000" selected>Medium (5 k)</option>
+        <option value="10000">Long (10 k)</option>
+        <option value="20000">Very long (20 k)</option>
+      </select>
+    </label>
+    <label class="row">
+      <span class="label-text">Colors</span>
+      <input type="range" id="sl-ncolors" min="2" max="8" value="4" step="1">
+      <span class="val-text" id="val-ncolors">4</span>
+    </label>
+    <label class="row">
+      <span class="label-text">Mode</span>
+    </label>
+    <div class="radio-group" style="margin-bottom:8px">
+      <label><input type="radio" name="mode" value="sharp" checked> Sharp zones</label>
+      <label><input type="radio" name="mode" value="bleeding"> Bleeding colors</label>
+    </div>
+  </div>
+
+  <!-- Appearance -->
+  <div class="section">
+    <div class="section-title">Appearance</div>
+    <label class="row">
+      <span class="label-text">Pattern strength</span>
+      <input type="range" id="sl-strength" min="0.2" max="1.0" value="0.7" step="0.05">
+      <span class="val-text" id="val-strength">0.70</span>
+    </label>
+    <label class="row">
+      <span class="label-text">Edge softness</span>
+      <input type="range" id="sl-sigma" min="0" max="8" value="3" step="0.5">
+      <span class="val-text" id="val-sigma">3.0</span>
+    </label>
+    <label class="row">
+      <span class="label-text">Background</span>
+      <select id="sel-bg">
+        <option value="white">White</option>
+        <option value="gray">Gray</option>
+        <option value="black">Black</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <input type="color" id="inp-bgcustom" value="#808080" style="display:none">
+    </label>
+  </div>
+
+  <!-- Advanced -->
+  <div class="section">
+    <details>
+      <summary>Advanced options</summary>
+      <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px">
+        <label class="row">
+          <span class="label-text">Start density</span>
+          <select id="sel-density">
+            <option value="minimal">Minimal</option>
+            <option value="scarce">Scarce</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+        <label class="row">
+          <span class="label-text">Preview every</span>
+          <select id="sel-preview-every">
+            <option value="100">100 iters</option>
+            <option value="200" selected>200 iters</option>
+            <option value="500">500 iters</option>
+            <option value="1000">1000 iters</option>
+          </select>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" id="chk-pixelart">
+          Pixel art mode (no boundary smoothing)
+        </label>
+      </div>
+    </details>
+  </div>
+
+  <!-- Video -->
+  <div class="section">
+    <div class="section-title">Output</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-bottom:8px">
+      <input type="checkbox" id="chk-video">
+      Record timelapse video (WebM)
+    </label>
+    <label style="font-size:11px;color:var(--muted)">
+      Captures one frame per preview update. Saved as WebM — plays in all modern browsers.
+    </label>
+  </div>
+
+  <!-- Run / Stop -->
+  <div class="btn-row">
+    <button id="btn-run" disabled>Run</button>
+    <button id="btn-stop">Stop</button>
+  </div>
+
+</aside>
+
+<!-- ── Output ────────────────────────────────────────────── -->
+<main id="output">
+  <div id="canvas-wrap">
+    <div id="canvas-placeholder">Upload an image and click Run</div>
+    <canvas id="preview-canvas"></canvas>
+  </div>
+  <div id="status-bar"></div>
+  <div id="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="sim-fill" style="width:0%"></div></div>
+  </div>
+  <div id="save-row">
+    <button id="btn-save" disabled style="flex:0 0 auto;padding:6px 18px">Save image</button>
+    <button id="btn-save-video" disabled style="flex:0 0 auto;padding:6px 18px;display:none">Save video</button>
+  </div>
+</main>
+
+</div><!-- #app -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   Reaction-Diffusion Studio — main thread JS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const PATTERN_PRESETS = [
+  "random","coral","labyrinth","stripe fragments","short worms","maze",
+  "sparse worms","sparse stripes","fingerprints","flakes",
+  "mitosis","zebrafish","solitons","wavelets",
+];
+
+/* ── State ──────────────────────────────────────────────── */
+let worker        = null;
+let engineReady   = false;
+let simRunning    = false;
+let uploadedFile  = null;
+let colorSettings = [];   // [{enabled, pattern}]
+let recordedFrames = [];
+let mediaRecorder = null;
+let videoChunks   = [];
+let videoBlob     = null;
+let finalCanvas   = null; // offscreen canvas with final image
+
+/* ── DOM refs ───────────────────────────────────────────── */
+const dropZone        = document.getElementById("drop-zone");
+const fileInput       = document.getElementById("file-input");
+const thumb           = document.getElementById("thumb");
+const paletteSection  = document.getElementById("palette-section");
+const paletteRow      = document.getElementById("palette-row");
+const perColorRows    = document.getElementById("per-color-rows");
+const selPattern      = document.getElementById("sel-pattern");
+const selSize         = document.getElementById("sel-size");
+const selLength       = document.getElementById("sel-length");
+const slNcolors       = document.getElementById("sl-ncolors");
+const valNcolors      = document.getElementById("val-ncolors");
+const slStrength      = document.getElementById("sl-strength");
+const valStrength     = document.getElementById("val-strength");
+const slSigma         = document.getElementById("sl-sigma");
+const valSigma        = document.getElementById("val-sigma");
+const selBg           = document.getElementById("sel-bg");
+const inpBgCustom     = document.getElementById("inp-bgcustom");
+const selDensity      = document.getElementById("sel-density");
+const selPreviewEvery = document.getElementById("sel-preview-every");
+const chkPixelart     = document.getElementById("chk-pixelart");
+const chkVideo        = document.getElementById("chk-video");
+const btnRun          = document.getElementById("btn-run");
+const btnStop         = document.getElementById("btn-stop");
+const btnSave         = document.getElementById("btn-save");
+const btnSaveVideo    = document.getElementById("btn-save-video");
+const canvas          = document.getElementById("preview-canvas");
+const placeholder     = document.getElementById("canvas-placeholder");
+const statusBar       = document.getElementById("status-bar");
+const simFill         = document.getElementById("sim-fill");
+const initFill        = document.getElementById("init-fill");
+const loaderSection   = document.getElementById("loader-section");
+const loaderText      = document.getElementById("loader");
+
+const ctx = canvas.getContext("2d");
+
+/* ── Populate pattern selector ──────────────────────────── */
+PATTERN_PRESETS.forEach(p => {
+  const opt = document.createElement("option");
+  opt.value = p;
+  opt.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+  selPattern.appendChild(opt);
+});
+selPattern.value = "coral";
+
+/* ── Slider live labels ─────────────────────────────────── */
+function bindSlider(slider, label, fmt) {
+  const update = () => { label.textContent = fmt(slider.value); };
+  slider.addEventListener("input", update);
+  update();
+}
+bindSlider(slNcolors,  valNcolors,  v => parseInt(v));
+bindSlider(slStrength, valStrength, v => parseFloat(v).toFixed(2));
+bindSlider(slSigma,    valSigma,    v => parseFloat(v).toFixed(1));
+
+slNcolors.addEventListener("change", rebuildPerColorRows);
+
+/* ── Global pattern → per-color sync ───────────────────── */
+selPattern.addEventListener("change", () => {
+  const v = selPattern.value;
+  colorSettings.forEach(cs => { cs.pattern = v; });
+  rebuildPerColorRows();
+});
+
+/* ── Background selector ────────────────────────────────── */
+selBg.addEventListener("change", () => {
+  inpBgCustom.style.display = selBg.value === "custom" ? "inline-block" : "none";
+});
+function getBg() {
+  if (selBg.value === "custom") return inpBgCustom.value;
+  return selBg.value;
+}
+
+/* ── Drop / file upload ─────────────────────────────────── */
+dropZone.addEventListener("click", () => fileInput.click());
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.classList.remove("drag-over");
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith("image/")) loadFile(f);
+});
+fileInput.addEventListener("change", () => {
+  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+});
+
+function loadFile(file) {
+  uploadedFile = file;
+  const url = URL.createObjectURL(file);
+  thumb.src = url;
+  thumb.style.display = "block";
+  paletteSection.style.display = "none";
+  paletteRow.innerHTML = "";
+  colorSettings = [];
+  if (engineReady) btnRun.disabled = false;
+  setStatus("Image loaded — click Run to simulate.");
+}
+
+/* ── Palette display after quantization ─────────────────── */
+function renderPalette(palette) {
+  const n = palette.length;
+  // Seed colorSettings from current global pattern
+  colorSettings = palette.map((_, i) => ({
+    enabled: colorSettings[i]?.enabled ?? true,
+    pattern: colorSettings[i]?.pattern ?? selPattern.value,
+  }));
+
+  paletteRow.innerHTML = "";
+  palette.forEach(([r, g, b], i) => {
+    const hex = `#${[r,g,b].map(x => Math.round(x).toString(16).padStart(2,"0")).join("")}`;
+    const wrap = document.createElement("div");
+    wrap.className = "swatch-wrap";
+
+    const sw = document.createElement("div");
+    sw.className = "swatch" + (colorSettings[i].enabled ? "" : " disabled");
+    sw.style.background = hex;
+    sw.style.borderColor = colorSettings[i].enabled ? "var(--accent)" : "transparent";
+    sw.title = `Color ${i+1}: ${hex}`;
+
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.className = "swatch-check";
+    chk.checked = colorSettings[i].enabled;
+    chk.addEventListener("change", () => {
+      colorSettings[i].enabled = chk.checked;
+      sw.classList.toggle("disabled", !chk.checked);
+      sw.style.borderColor = chk.checked ? "var(--accent)" : "transparent";
+      syncPerColorRow(i);
+    });
+
+    wrap.appendChild(sw);
+    wrap.appendChild(chk);
+    paletteRow.appendChild(wrap);
+  });
+
+  rebuildPerColorRows(palette);
+  paletteSection.style.display = "block";
+}
+
+function syncPerColorRow(i) {
+  const row = perColorRows.children[i];
+  if (!row) return;
+  const chk = row.querySelector("input[type=checkbox]");
+  if (chk) chk.checked = colorSettings[i].enabled;
+}
+
+let _currentPalette = [];
+function rebuildPerColorRows(paletteArg) {
+  if (Array.isArray(paletteArg)) _currentPalette = paletteArg;
+  const palette = _currentPalette;
+  if (!palette.length) return;
+
+  perColorRows.innerHTML = "";
+  colorSettings.forEach((cs, i) => {
+    if (i >= palette.length) return;
+    const [r, g, b] = palette[i];
+    const hex = `#${[r,g,b].map(x => Math.round(x).toString(16).padStart(2,"0")).join("")}`;
+
+    const row = document.createElement("div");
+    row.className = "color-row";
+
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = cs.enabled;
+    chk.addEventListener("change", () => {
+      cs.enabled = chk.checked;
+      // Sync swatch
+      const sw = paletteRow.children[i];
+      if (sw) {
+        sw.querySelector(".swatch").classList.toggle("disabled", !chk.checked);
+        sw.querySelector(".swatch").style.borderColor = chk.checked ? "var(--accent)" : "transparent";
+        sw.querySelector(".swatch-check").checked = chk.checked;
+      }
+    });
+
+    const swatch = document.createElement("div");
+    swatch.className = "mini-swatch";
+    swatch.style.background = hex;
+
+    const sel = document.createElement("select");
+    PATTERN_PRESETS.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+      sel.appendChild(opt);
+    });
+    sel.value = cs.pattern;
+    sel.addEventListener("change", () => { cs.pattern = sel.value; });
+
+    row.appendChild(chk);
+    row.appendChild(swatch);
+    row.appendChild(sel);
+    perColorRows.appendChild(row);
+  });
+}
+
+/* ── Worker management ──────────────────────────────────── */
+function createWorker() {
+  engineReady = false;
+  btnRun.disabled = true;
+  loaderSection.style.display = "block";
+  loaderText.textContent = "Initializing engine…";
+  initFill.style.width = "0%";
+
+  worker = new Worker("worker.js");
+  worker.onmessage = handleWorkerMessage;
+  worker.onerror = (e) => {
+    setStatus(`Engine error: ${e.message}`);
+    simRunning = false;
+    resetRunUI();
+  };
+}
+
+const initSteps = { "loading": 0, "ready": 100 };
+const initFills = {
+  "Loading Python runtime…": 20,
+  "Loading scientific packages (numpy, scipy, sklearn)…": 60,
+  "Loading engine modules…": 85,
+};
+
+/* ── Worker message handler ─────────────────────────────── */
+function handleWorkerMessage({ data }) {
+  switch (data.type) {
+
+    case "loading": {
+      loaderText.textContent = data.msg;
+      const pct = initFills[data.msg] ?? 10;
+      initFill.style.width = pct + "%";
+      break;
+    }
+
+    case "ready": {
+      engineReady = true;
+      initFill.style.width = "100%";
+      loaderText.textContent = "Engine ready ✓";
+      setTimeout(() => { loaderSection.style.display = "none"; }, 800);
+      if (uploadedFile) btnRun.disabled = false;
+      break;
+    }
+
+    case "status": {
+      setStatus(data.msg);
+      break;
+    }
+
+    case "palette": {
+      renderPalette(data.palette);
+      break;
+    }
+
+    case "progress": {
+      const pct = Math.round((data.iter / data.maxIter) * 100);
+      simFill.style.width = pct + "%";
+      const active = data.nActive >= 0
+        ? ` · ${data.nActive}/${data.nColors} active`
+        : "";
+      setStatus(`Iteration ${data.iter} / ${data.maxIter}${active} (${pct}%)`);
+      break;
+    }
+
+    case "preview": {
+      drawFrame(data.data, data.w, data.h, /* record */ true);
+      break;
+    }
+
+    case "done": {
+      drawFrame(data.data, data.w, data.h, /* record */ false);
+      finalCanvas = document.createElement("canvas");
+      finalCanvas.width = data.w;
+      finalCanvas.height = data.h;
+      finalCanvas.getContext("2d").putImageData(
+        new ImageData(new Uint8ClampedArray(data.data.buffer), data.w, data.h),
+        0, 0
+      );
+      setStatus(`Done — ${data.w}×${data.h} px · patterns: ${data.patterns.join(", ")}`);
+      simFill.style.width = "100%";
+      simRunning = false;
+      resetRunUI();
+      btnSave.disabled = false;
+      if (chkVideo.checked && recordedFrames.length > 0) exportVideo();
+      break;
+    }
+
+    case "error": {
+      setStatus(`Error: ${data.msg}`);
+      simRunning = false;
+      resetRunUI();
+      break;
+    }
+  }
+}
+
+/* ── Draw a preview frame ────────────────────────────────── */
+function drawFrame(jsArr, w, h, record) {
+  const uint8 = new Uint8ClampedArray(jsArr.buffer);
+  const imgData = new ImageData(uint8, w, h);
+  canvas.width  = w;
+  canvas.height = h;
+  ctx.putImageData(imgData, 0, 0);
+  placeholder.style.display = "none";
+  canvas.style.display = "block";
+
+  if (record && chkVideo.checked) {
+    recordedFrames.push(new Uint8ClampedArray(jsArr));
+  }
+}
+
+/* ── Run / Stop ─────────────────────────────────────────── */
+btnRun.addEventListener("click", runSim);
+btnStop.addEventListener("click", stopSim);
+
+async function runSim() {
+  if (!uploadedFile || !engineReady || simRunning) return;
+
+  simRunning = true;
+  recordedFrames = [];
+  videoBlob = null;
+  btnSaveVideo.style.display = "none";
+
+  btnRun.style.display = "none";
+  btnStop.style.display = "block";
+  btnSave.disabled = true;
+  simFill.style.width = "0%";
+  setStatus("Preparing image…");
+
+  // Resize image to working size
+  const maxSide = parseInt(selSize.value);
+  let imageBuffer, W, H;
+  try {
+    ({ imageBuffer, W, H } = await prepareImage(uploadedFile, maxSide));
+  } catch (e) {
+    setStatus(`Image error: ${e.message}`);
+    simRunning = false;
+    resetRunUI();
+    return;
+  }
+
+  // Build per-color pattern list
+  const n = parseInt(slNcolors.value);
+  const patterns = [];
+  for (let i = 0; i < n; i++) {
+    patterns.push(colorSettings[i]?.pattern ?? selPattern.value);
+  }
+  const enabled = [];
+  for (let i = 0; i < n; i++) {
+    enabled.push(colorSettings[i]?.enabled ?? true);
+  }
+
+  const sigma = chkPixelart.checked ? 0 : parseFloat(slSigma.value);
+
+  worker.postMessage({
+    type:             "run",
+    imageBuffer,
+    W,
+    H,
+    n_colors:         n,
+    mode:             document.querySelector("input[name=mode]:checked").value,
+    pattern_strength: parseFloat(slStrength.value),
+    smooth_sigma:     sigma,
+    max_iter:         parseInt(selLength.value),
+    save_every:       parseInt(selPreviewEvery.value),
+    bg:               getBg(),
+    start_density:    selDensity.value,
+    enabled,
+    patterns,
+  }, [imageBuffer]);
+}
+
+function stopSim() {
+  if (!simRunning) return;
+  setStatus("Stopping… recreating engine (~3 s from cache)");
+  worker.terminate();
+  simRunning = false;
+  resetRunUI();
+  // Recreate worker so next run is ready
+  createWorker();
+}
+
+function resetRunUI() {
+  btnRun.style.display = "block";
+  btnStop.style.display = "none";
+  btnRun.disabled = !(engineReady && uploadedFile);
+}
+
+/* ── Prepare image (resize on canvas) ───────────────────── */
+function prepareImage(file, maxSide) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let W = img.naturalWidth;
+      let H = img.naturalHeight;
+      // Scale to fit maxSide on the longer dimension
+      const ratio = maxSide / Math.max(W, H);
+      if (ratio < 1) { W = Math.round(W * ratio); H = Math.round(H * ratio); }
+      // Ensure minimum 256 px on the short side for patterns to develop
+      const minRatio = 256 / Math.min(W, H);
+      if (minRatio > 1) { W = Math.round(W * minRatio); H = Math.round(H * minRatio); }
+
+      const oc = new OffscreenCanvas(W, H);
+      const octx = oc.getContext("2d");
+      octx.drawImage(img, 0, 0, W, H);
+      const imageData = octx.getImageData(0, 0, W, H);
+      const imageBuffer = imageData.data.buffer.slice(0); // copy so we can transfer
+      resolve({ imageBuffer, W, H });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not load image")); };
+    img.src = url;
+  });
+}
+
+/* ── Save image ─────────────────────────────────────────── */
+btnSave.addEventListener("click", () => {
+  if (!finalCanvas) return;
+  finalCanvas.toBlob(blob => {
+    triggerDownload(blob, "rdstudio_output.png");
+  }, "image/png");
+});
+
+/* ── Video export (replay timelapse at 8 fps) ────────────── */
+async function exportVideo() {
+  if (recordedFrames.length === 0) return;
+  setStatus("Encoding timelapse video…");
+  btnSaveVideo.style.display = "block";
+  btnSaveVideo.disabled = true;
+  btnSaveVideo.textContent = "Encoding…";
+
+  const { width: W, height: H } = canvas;
+  // Use a regular (non-Offscreen) canvas — OffscreenCanvas.captureStream() is unsupported
+  const vc = document.createElement("canvas");
+  vc.width = W; vc.height = H;
+  vc.style.display = "none";
+  document.body.appendChild(vc);
+  const vctx = vc.getContext("2d");
+
+  const stream = vc.captureStream(8);
+  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+    ? "video/webm;codecs=vp9"
+    : "video/webm";
+  const recorder = new MediaRecorder(stream, { mimeType });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  recorder.start();
+  const track = stream.getVideoTracks()[0];
+
+  for (const frame of recordedFrames) {
+    const imgData = new ImageData(frame, W, H);
+    vctx.putImageData(imgData, 0, 0);
+    track.requestFrame();
+    await sleep(125); // 8 fps
+  }
+
+  await new Promise(res => { recorder.onstop = res; recorder.stop(); });
+  document.body.removeChild(vc);
+  videoBlob = new Blob(chunks, { type: "video/webm" });
+  btnSaveVideo.disabled = false;
+  btnSaveVideo.textContent = "Save video";
+  setStatus(`Done. ${recordedFrames.length} frames encoded.`);
+}
+
+btnSaveVideo.addEventListener("click", () => {
+  if (videoBlob) triggerDownload(videoBlob, "rdstudio_timelapse.webm");
+});
+
+/* ── Helpers ────────────────────────────────────────────── */
+function setStatus(msg) { statusBar.textContent = msg; }
+
+function triggerDownload(blob, filename) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ── Boot ───────────────────────────────────────────────── */
+createWorker();
+
+// Fallback status if engine takes long
+setTimeout(() => {
+  if (!engineReady) {
+    loaderText.textContent = "Still loading… (first visit downloads ~50 MB, cached after)";
+  }
+}, 8000);
+</script>
+</body>
+</html>

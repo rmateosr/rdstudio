@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rdstudio"
-version = "0.1.2"
+version = "0.3.0"
 description = "Image-based Gray-Scott reaction-diffusion studio with a desktop GUI"
 readme = "README.md"
 license = { text = "MIT" }

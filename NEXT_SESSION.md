@@ -1,79 +1,52 @@
 # Pickups for the next session
 
-Status as of v0.1.1 (released
-https://github.com/rmateosr/rdstudio/releases/tag/v0.1.1):
+## Status
 
-- Mac DMG (arm64) and Windows zip download from GitHub Releases.
-- App has a real icon (the cute reaction-diffusion sphere), embedded by
-  PyInstaller for the OS-level taskbar/dock and set via Tk `iconphoto`
-  for the window chrome.
-- `RELEASE_PLAN.md` steps 1–7 done. Steps 8 (Gradio) and 9 (code
-  signing) open.
+**v0.3.0 — full-feature Pyodide web app shipped.**
 
-Two remaining pickups, in rough order of payoff. Each is self-contained.
+`index.html` + `worker.js` at repo root. Enable GitHub Pages (Settings →
+Pages → Deploy from branch: main, folder: / (root)) to go live at
+`https://rmateosr.github.io/rdstudio/`.
 
 ---
 
-## 1. Remove the `labyrinth` preset
+## Remaining tasks
 
-**What.** Drop `labyrinth` from the engine entirely. It's already gone
-from the README gallery (commit `b999676`).
+- [ ] **Enable GitHub Pages** — repo Settings → Pages → Source: Deploy from branch `main`, folder `/ (root)`. URL will be `https://rmateosr.github.io/rdstudio/`.
 
-**How.** `rdstudio/presets.py` defines `PATTERN_PRESETS` as a dict.
-Delete the `"labyrinth": (...)` entry. The app derives the dropdown
-list from this dict, so the UI updates automatically.
+- [ ] **Smoke-test in browser** — open via local server (not file://):
+  ```bash
+  cd /mnt/c/Users/Raul/Documents/rdstudio
+  python -m http.server 8080
+  # open http://localhost:8080
+  ```
+  Upload a small image, run Short + Small, verify preview appears and image downloads.
 
-Then grep for any per-color defaults or test fixtures referencing the
-name:
+- [ ] **Test video recording** — check "Record timelapse video", run, click "Save video", verify WebM plays.
 
-```bash
-grep -rn "labyrinth" rdstudio/ tests/ scripts/
-```
+- [ ] **Test all image sizes** — verify Medium (1024) and Large (1536) complete without error.
 
-Note: `pattern_thumbnails/labyrinth.png` lives in the user's cache dir
-(`platformdirs.user_cache_dir("RDStudio", "RNMateos")/pattern_thumbnails`),
-not the repo — leave it; if a user has it cached it's harmless, and
-new users won't generate it once the preset is gone.
+- [ ] **Test Bleeding colors mode** — verify it runs and composite looks correct.
 
-Bump version to `0.1.2`, tag, push — release pipeline handles the rest.
+- [ ] **Tag v0.3.0** — once smoke tests pass:
+  ```bash
+  git tag v0.3.0
+  git push origin main --tags
+  ```
 
----
-
-## 2. Gradio "try in your browser" demo (RELEASE_PLAN §7)
-
-**What.** A Hugging Face Space that runs the engine in the browser.
-Users who don't want to download anything can try the tool from a URL.
-Same engine code, just a different UI layer.
-
-**How.** Create `rdstudio/web.py` that builds a Gradio Interface around
-`engine_classic.simulate` and `engine_leaky.simulate_leaky`. Then a
-top-level `app.py` (Spaces convention) does:
-
-```python
-from rdstudio.web import demo
-demo.launch()
-```
-
-Cap `max_iter` and image size aggressively (≤512 px, ≤3000 iter) so
-free-tier CPU users don't queue forever. Spaces hardware = CPU Basic
-(free) is the right starting point.
-
-`pyproject.toml` already has `[project.optional-dependencies] web =
-["gradio>=4.0"]`. Push the repo to a new Space at
-`huggingface.co/spaces/rmateosr/rdstudio`; HF auto-detects `app.py` and
-runs it. Add a "Try it in your browser" button to the README pointing
-at the Space URL.
-
-What won't work as well: long simulations (CPU is slow), large file
-uploads (10 MB cap on free Spaces), concurrent users (they queue on
-one CPU). That's fine — frame it as a "try before install" preview,
-not a replacement.
+- [ ] **Update HF Spaces** — old Gradio demo can be kept or retired. Low priority.
 
 ---
 
-## Suggested prompt for a fresh Claude Code session
+## Architecture notes
 
-> Read `RELEASE_PLAN.md` and `NEXT_SESSION.md` to catch up on context.
-> v0.1.1 has shipped. Pick task 1 (labyrinth removal) or task 2
-> (Gradio web demo) from `NEXT_SESSION.md` and execute it end-to-end,
-> ending with a tagged release if appropriate.
+- **Hosting:** GitHub Pages (free, static, from repo root on `main` branch)
+- **Compute:** Pyodide 0.27.0 — Python runs in the browser (Web Worker)
+- **Packages:** numpy, scipy, scikit-learn, pillow — loaded from Pyodide CDN (~50 MB, cached)
+- **Engine files:** fetched from same origin at runtime (`rdstudio/*.py`) — no duplication
+- **Stop:** `worker.terminate()` + recreate worker; ~3 s reload from browser cache
+- **Video:** MediaRecorder captures a hidden `<canvas>` replaying preview frames at 8 fps → WebM
+- **Key files:**
+  - `index.html` — full UI (HTML/CSS/JS)
+  - `worker.js` — Pyodide worker with Python simulation glue
+  - `rdstudio/engine_classic.py`, `engine_leaky.py` — unchanged engines, loaded at runtime
