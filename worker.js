@@ -24,18 +24,20 @@ from rdstudio import engine_classic as rd
 from rdstudio import engine_leaky as rdl
 from rdstudio.presets import PATTERN_PRESETS, REQUIRES_SCARCE, DU_DEFAULT, DV_DEFAULT
 from rdstudio.bg import parse_bg
-from js import postMessage
+from js import postMessage, Object
 from pyodide.ffi import to_js
 
 DT = 1.0
 CONV_TOL = 1e-5
 
 def _post(d):
-    postMessage(to_js(d))
+    # dict_converter=Object.fromEntries produces a plain JS object instead of a Map,
+    # so the main thread can access fields with dot notation (data.type, data.w, etc.)
+    postMessage(to_js(d, dict_converter=Object.fromEntries))
 
 def run_simulation(config):
+    # config arrives as a plain Python dict (JS side used pyodide.toPy)
     import js as _js
-    config = config.to_py()
 
     W            = int(config['W'])
     H            = int(config['H'])
