@@ -1,3 +1,14 @@
+---
+title: Reaction-Diffusion Studio
+emoji: 🔬
+colorFrom: blue
+colorTo: green
+sdk: gradio
+sdk_version: "4.0"
+app_file: app.py
+pinned: false
+---
+
 # Reaction-Diffusion Studio
 
 Turn any image into a reaction-diffusion painting. Load a photo or drawing,
@@ -15,8 +26,8 @@ textures inside each color region. Save the result as a still or a video.
 
 ## Try it in your browser
 
-[**Open the web demo →**](https://huggingface.co/spaces/rmateosr/rdstudio)
-&nbsp;[![Open in Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/rmateosr/rdstudio)
+[**Open the web demo →**](https://huggingface.co/spaces/raulnmateos/rdstudio)
+&nbsp;[![Open in Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/raulnmateos/rdstudio)
 
 No install — runs in any modern browser. Free CPU, so it caps inputs at
 512 px and 3000 iterations (~30 s per run). For larger images, longer
