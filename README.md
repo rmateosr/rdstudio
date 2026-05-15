@@ -13,6 +13,18 @@ textures inside each color region. Save the result as a still or a video.
 
 ---
 
+## Try it in your browser
+
+[**Open the web demo →**](https://huggingface.co/spaces/rmateosr/rdstudio)
+&nbsp;[![Open in Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/rmateosr/rdstudio)
+
+No install — runs in any modern browser. Free CPU, so it caps inputs at
+512 px and 3000 iterations (~30 s per run). For larger images, longer
+runs, video export, and per-color patterns, download the desktop app
+below.
+
+---
+
 ## Download
 
 | Platform | Link | Notes |
